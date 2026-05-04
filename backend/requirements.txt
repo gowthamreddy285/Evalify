@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic[email]
+email-validator
+groq
+sentence-transformers
+scikit-learn
+torch
+spacy
+language-tool-python
+pdfplumber
+openai-whisper
+python-dotenv
+sqlalchemy
+passlib[bcrypt]
+python-jose[cryptography]
