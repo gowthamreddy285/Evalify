@@ -206,6 +206,41 @@ async def get_me(user: User = Depends(get_current_user)):
         "created_at": user.created_at,
     }
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+@app.post("/change-password")
+async def change_password(req: ChangePasswordRequest, user: User = Depends(get_current_user)):
+    """Securely change password by verifying current one first."""
+    if not verify_password(req.current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password incorrect")
+    
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
+    
+    user.password_hash = hash_password(req.new_password)
+    await user.save()
+    return {"message": "Password updated successfully"}
+
+@app.delete("/delete-account")
+async def delete_account(user: User = Depends(get_current_user)):
+    """Permanently delete user and all associated data."""
+    user_id_str = str(user.id)
+    
+    # 1. Delete all answers
+    await Answer.find(Answer.user_id == user_id_str).delete()
+    # 2. Delete all questions
+    await Question.find(Question.user_id == user_id_str).delete()
+    # 3. Delete all sessions
+    await InterviewSession.find(InterviewSession.user_id == user_id_str).delete()
+    # 4. Delete user profile
+    await user.delete()
+    
+    return {"message": "Account terminated successfully"}
+
+
+
 
 # ───────────────────────────────────────────
 # SESSION MANAGEMENT (NEW)
@@ -332,7 +367,7 @@ async def complete_session(session_id: str, req: CompleteSessionRequest, user: U
 @app.get("/sessions")
 async def get_sessions(user: User = Depends(get_current_user)):
     """
-    Returns all sessions for the current user (replaces /history).
+    Returns all sessions for the current user.
     """
     sessions = await InterviewSession.find(
         InterviewSession.user_id == str(user.id)
@@ -340,12 +375,17 @@ async def get_sessions(user: User = Depends(get_current_user)):
 
     result = []
     for s in sessions:
+        # Fallback for job role if jd_data is missing
+        job_role = s.jd_data.get("job_role") if s.jd_data else None
+        if not job_role:
+            job_role = "General Interview"
+
         result.append({
             "id": str(s.id),
             "created_at": s.created_at,
             "status": s.status,
             "difficulty": s.difficulty,
-            "job_role": s.jd_data.get("job_role", "General Interview"),
+            "job_role": job_role,
             "final_score": s.final_score,
             "overall_score": s.final_score or 0,
             "total_questions": s.total_questions,

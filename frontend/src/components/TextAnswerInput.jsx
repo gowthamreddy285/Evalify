@@ -21,10 +21,10 @@ export default function TextAnswerInput({ onSubmit, disabled }) {
           placeholder="Type your answer here... Take your time."
           disabled={disabled}
           rows={8}
-          className="w-full h-full min-h-[200px] bg-[#1A1A24] border border-[#2A2A3A] rounded-[14px] p-5 text-[#F0F0FF] text-sm resize-none focus:border-[#6C63FF] focus:outline-none transition-colors placeholder:text-[#8B8BA0]/60 disabled:opacity-50"
+          className="w-full h-full min-h-[250px] bg-[#030303] border border-white/5 rounded-2xl p-6 text-[#F5F5F5] text-sm resize-none focus:border-[#D4121B]/50 focus:outline-none transition-all placeholder:text-[#707070]/40 disabled:opacity-50 font-medium leading-relaxed"
           id="answer-textarea"
         />
-        <div className="absolute bottom-3 right-4 text-xs text-[#8B8BA0] font-mono">
+        <div className="absolute bottom-4 right-6 text-[10px] text-[#707070] font-black uppercase tracking-widest bg-[#0A0A0A] px-2 py-1 rounded border border-white/5">
           {wordCount} {wordCount === 1 ? 'word' : 'words'}
         </div>
       </div>
@@ -34,7 +34,7 @@ export default function TextAnswerInput({ onSubmit, disabled }) {
         whileTap={{ scale: 0.98 }}
         onClick={handleSubmit}
         disabled={!text.trim() || disabled}
-        className="w-full py-3.5 bg-[#6C63FF] hover:bg-[#7B73FF] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-[11px] btn-shine cursor-pointer transition-colors"
+        className="w-full py-4 bg-[#D4121B] hover:bg-[#E61A23] disabled:opacity-20 disabled:cursor-not-allowed text-white font-black rounded-2xl btn-shine cursor-pointer transition-all shadow-xl shadow-[#D4121B]/20 text-[10px] uppercase tracking-widest"
         id="submit-answer-btn"
       >
         Submit Answer →

@@ -82,6 +82,11 @@ def length_score(text):
     else:                     return 40
 
 
+def is_answer_refusal(text: str) -> bool:
+    clean = text.strip().lower()
+    refusals = {"i don't know", "dont know", "no idea", "not sure", "skip", "none", "nothing", "na", "n/a", ".", "?", "idk"}
+    return clean in refusals or len(clean) < 6
+
 # ─────────────────────────────────────────────────────────────────
 # MAIN FUNCTION
 # ─────────────────────────────────────────────────────────────────
@@ -95,6 +100,18 @@ def evaluate_communication_quality(text: str, question: str = None) -> dict:
 
     Total weights = 1.0
     """
+    # STRICTURE: Refusals get zero communication score
+    if is_answer_refusal(text):
+        return {
+            "overall_score": 0.0,
+            "grammar_score": 0.0,
+            "clarity_score": 0.0,
+            "professionalism_score": 0.0,
+            "length_score": 0.0,
+            "grammar_errors": 0,
+            "weights": {"grammar": "35%", "clarity": "30%", "professionalism": "20%", "length": "15%"}
+        }
+
     g_score, errors = grammar_score(text)
     c_score = clarity_score(text)
     p_score = professionalism_score(text)
@@ -122,3 +139,4 @@ def evaluate_communication_quality(text: str, question: str = None) -> dict:
             "length": "15%"
         }
     }
+

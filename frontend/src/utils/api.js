@@ -136,3 +136,13 @@ export async function transcribe(audioBlob) {
   });
   return data;
 }
+
+export async function changePassword({ current_password, new_password }) {
+  const { data } = await API.post('/change-password', { current_password, new_password });
+  return data;
+}
+
+export async function deleteAccount() {
+  const { data } = await API.delete('/delete-account');
+  return data;
+}

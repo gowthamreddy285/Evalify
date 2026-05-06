@@ -169,6 +169,27 @@ Return ONLY valid JSON:
         return {"overall_assessment": text}
 
 
+def is_answer_irrelevant(answer: str) -> bool:
+    """
+    Checks if the answer is a refusal, skip, or too short to be meaningful.
+    """
+    clean_ans = answer.strip().lower()
+    
+    # 1. Direct refusal/skip phrases
+    refusals = {
+        "i don't know", "dont know", "no idea", "not sure", 
+        "skip", "none", "nothing", "na", "n/a", ".", "?", "irrelevant",
+        "i do not know", "no clue", "pass", "idk"
+    }
+    if clean_ans in refusals:
+        return True
+    
+    # 2. Too short to contain a technical concept (e.g. "ok", "yes", "the")
+    if len(clean_ans) < 6:
+        return True
+        
+    return False
+
 # ─────────────────────────────────────────────────────────────────
 # MAIN FUNCTION
 # ─────────────────────────────────────────────────────────────────
@@ -179,6 +200,26 @@ def evaluate_answer_correctness(question: str, candidate_answer: str, context: d
       + Semantic Similarity × 0.3
       + Keyword Coverage    × 0.2
     """
+    # STRICTURE: If answer is a refusal or nonsense, give zero immediately
+    if is_answer_irrelevant(candidate_answer):
+        return {
+            "correctness_score": 0.0,
+            "score_breakdown": {
+                "ai_judge_score": 0.0,
+                "ai_judge_reason": "Candidate provided a skip, refusal, or irrelevant one-word answer.",
+                "similarity_score": 0.0,
+                "keyword_coverage_score": 0.0,
+                "weights": "N/A"
+            },
+            "reference_answer": "Requires a meaningful technical response.",
+            "feedback": {
+                "overall_assessment": "No attempt was made to answer this question. Providing no substance results in a zero score.",
+                "strengths": [],
+                "improvements": ["Provide a detailed technical answer instead of skipping."],
+                "missing_concepts": ["All technical concepts were missed."]
+            }
+        }
+
     reference_answer = generate_reference_answer(question, context)
     similarity_score = compute_similarity(candidate_answer, reference_answer)
     judge_score, judge_reason = ai_judge_score(question, candidate_answer, reference_answer)

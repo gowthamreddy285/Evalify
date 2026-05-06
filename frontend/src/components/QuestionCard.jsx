@@ -34,13 +34,13 @@ export default function QuestionCard({ question, index, total }) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="bg-[#1A1A24] rounded-[14px] border border-[#2A2A3A] p-6 lg:p-8 h-full gradient-border noise-overlay"
+      className="bg-[#0A0A0A] rounded-[24px] border border-white/5 p-8 lg:p-10 h-full gradient-border noise-overlay shadow-2xl"
     >
       <div className="relative z-10 flex flex-col h-full">
         {/* Header badges */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <span className="px-3 py-1 rounded-[18px] bg-[#6C63FF]/15 text-[#A59FFF] text-xs font-bold font-mono border border-[#6C63FF]/20">
+            <span className="px-4 py-1.5 rounded-full bg-[#D4121B]/10 text-[#F5F5F5] text-[10px] font-black uppercase tracking-widest border border-[#D4121B]/20">
               Q{index + 1}
             </span>
             <span
@@ -53,7 +53,7 @@ export default function QuestionCard({ question, index, total }) {
 
           <button 
             onClick={toggleSpeech}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${isSpeaking ? 'bg-[#6C63FF] text-white' : 'bg-[#2A2A3A] text-[#8B8BA0] hover:text-[#F0F0FF] hover:bg-[#3A3A4A]'}`}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg ${isSpeaking ? 'bg-[#D4121B] text-white shadow-[#D4121B]/30' : 'bg-[#030303] border border-white/5 text-[#707070] hover:text-[#F5F5F5] hover:border-[#D4121B]/30'}`}
             title={isSpeaking ? "Stop Reading" : "Read Question"}
           >
             {isSpeaking ? (
@@ -71,9 +71,9 @@ export default function QuestionCard({ question, index, total }) {
 
         {/* Topic tag */}
         {question?.topic && (
-          <div className="mt-6 pt-4 border-t border-[#2A2A3A]">
-            <span className="text-xs text-[#8B8BA0]">
-              Topic: <span className="text-[#F0F0FF] font-medium">{question.topic}</span>
+          <div className="mt-8 pt-6 border-t border-white/5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#707070]">
+              Topic: <span className="text-[#D4121B]">{question.topic}</span>
             </span>
           </div>
         )}
