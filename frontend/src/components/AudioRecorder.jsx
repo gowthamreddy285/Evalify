@@ -115,9 +115,7 @@ export default function AudioRecorder({ onSubmit, disabled }) {
       {/* Recording indicator + Live Transcript */}
       {isRecording && (
         <div className="flex flex-col items-center gap-6 mb-4 w-full max-w-md">
-          <div className="flex items-center gap-1.5 h-12">
-            {[1,2,3,4,5].map(i => <div key={i} className="wave-bar bg-[#D4121B]" />)}
-          </div>
+          <WaveformVisualizer stream={previewStream} isRecording={isRecording} />
           
           <div className="bg-[#0A0A0A]/60 backdrop-blur-md border border-white/5 rounded-2xl p-4 w-full min-h-[80px] flex items-center justify-center">
             <p className="text-[#F5F5F5] text-center italic text-sm leading-relaxed opacity-80 animate-pulse">

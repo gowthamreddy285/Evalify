@@ -15,7 +15,7 @@ export default function Results() {
   const { state, dispatch, addToast } = useInterview();
   const { results, questions, answers, sessionId } = state;
   const [evaluating, setEvaluating] = useState(false);
-  const [evalIndex, setEvalIndex] = useState(-1);
+  const [completedIndices, setCompletedIndices] = useState([]);
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -32,69 +32,55 @@ export default function Results() {
 
   const runEvaluations = async () => {
     setEvaluating(true);
-    const allResults = [];
+    setCompletedIndices([]);
     
     try {
-      for (let i = 0; i < questions.length; i++) {
-        setEvalIndex(i);
-        const q = questions[i];
+      // 1. Trigger all evaluations in parallel
+      const evaluationPromises = questions.map(async (q, i) => {
         const a = answers[i];
         
+        let res;
         if (!a || a.content === '[Skipped]') {
-          allResults.push({
+          res = {
             scores: { final_score: 0, breakdown: { relevance: 0, technical: 0, communication: 0 } },
             feedback: { overall_summary: 'Question was skipped.', strengths: [], weaknesses: ['Question not answered.'], improvement_tips: ['Always try to provide at least a brief answer.'] },
             reference_answer: 'Not available for skipped question.',
             candidate_answer: '[Skipped]'
-          });
-          continue;
-        }
-
-        let res;
-        if (a.type === 'audio' && a.audioBlob) {
+          };
+        } else if (a.type === 'audio' && a.audioBlob) {
           res = await evaluateAudio({ question: q.question, audioBlob: a.audioBlob });
+          res.candidate_answer = a.content;
         } else {
           res = await evaluateText({ question: q.question, answer: a.content });
+          res.candidate_answer = a.content;
         }
-        
-        allResults.push({ ...res, candidate_answer: a.content });
-      }
 
-      // Add all results to state
-      allResults.forEach(r => dispatch({ type: 'ADD_RESULT', payload: r }));
-      
-      // Calculate final score
-      const avgFinal = Math.round(allResults.reduce((s, r) => s + (r?.scores?.final_score || 0), 0) / allResults.length);
-
-      // Save each answer to MongoDB
-      if (sessionId) {
-        for (let i = 0; i < allResults.length; i++) {
-          const r = allResults[i];
-          const q = questions[i];
+        // Save individual answer to MongoDB if session exists
+        if (sessionId) {
           try {
             await saveAnswer({
               session_id: sessionId,
               question_id: q.id || '',
-              candidate_answer: r.candidate_answer || '',
-              reference_answer: r.reference_answer || '',
+              candidate_answer: res.candidate_answer || '',
+              reference_answer: res.reference_answer || '',
               scores: {
-                correctness: r.scores?.breakdown?.relevance || 0,
-                ai_judge: r.scores?.breakdown?.technical || 0,
-                similarity: r.scores?.breakdown?.similarity || 0,
-                keyword_coverage: r.scores?.breakdown?.keyword_coverage || 0,
-                communication: r.scores?.breakdown?.communication || 0,
-                grammar: r.nlp_analysis?.grammar_score || 0,
-                clarity: r.nlp_analysis?.clarity_score || 0,
-                professionalism: r.nlp_analysis?.professionalism_score || 0,
-                length: r.nlp_analysis?.length_score || 0,
-                delivery: r.scores?.breakdown?.delivery || 0,
-                final: r.scores?.final_score || 0,
+                correctness: res.scores?.breakdown?.relevance || 0,
+                ai_judge: res.scores?.breakdown?.technical || 0,
+                similarity: res.scores?.breakdown?.similarity || 0,
+                keyword_coverage: res.scores?.breakdown?.keyword_coverage || 0,
+                communication: res.scores?.breakdown?.communication || 0,
+                grammar: res.nlp_analysis?.grammar_score || 0,
+                clarity: res.nlp_analysis?.clarity_score || 0,
+                professionalism: res.nlp_analysis?.professionalism_score || 0,
+                length: res.nlp_analysis?.length_score || 0,
+                delivery: res.scores?.breakdown?.delivery || 0,
+                final: res.scores?.final_score || 0,
               },
               feedback: {
-                strengths: r.feedback?.strengths || [],
-                weaknesses: r.feedback?.weaknesses || [],
-                improvement_tips: r.feedback?.improvement_tips || [],
-                overall_summary: r.feedback?.overall_summary || '',
+                strengths: res.feedback?.strengths || [],
+                weaknesses: res.feedback?.weaknesses || [],
+                improvement_tips: res.feedback?.improvement_tips || [],
+                overall_summary: res.feedback?.overall_summary || '',
               },
             });
           } catch (err) {
@@ -102,7 +88,18 @@ export default function Results() {
           }
         }
 
-        // Complete the session
+        setCompletedIndices(prev => [...prev, i]);
+        return res;
+      });
+
+      const allResults = await Promise.all(evaluationPromises);
+
+      // 2. Update state with all results
+      allResults.forEach(r => dispatch({ type: 'ADD_RESULT', payload: r }));
+      
+      // 3. Complete the session
+      const avgFinal = Math.round(allResults.reduce((s, r) => s + (r?.scores?.final_score || 0), 0) / allResults.length);
+      if (sessionId) {
         try {
           await completeSession(sessionId, avgFinal);
         } catch (err) {
@@ -116,7 +113,6 @@ export default function Results() {
       addToast('Some answers could not be evaluated.', 'error');
     } finally {
       setEvaluating(false);
-      setEvalIndex(-1);
     }
   };
 
@@ -133,7 +129,7 @@ export default function Results() {
                  className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#D4121B]"
                />
                <div className="absolute inset-0 flex items-center justify-center font-bold text-[#F5F5F5] text-xl font-mono">
-                 {Math.round(((evalIndex + 1) / questions.length) * 100)}%
+                 {Math.round(((completedIndices.length) / questions.length) * 100)}%
                </div>
             </div>
             <h2 className="text-2xl font-black text-[#F5F5F5] mb-4 tracking-[-0.03em] uppercase">Generating Report</h2>
@@ -141,9 +137,9 @@ export default function Results() {
             <div className="space-y-4">
               {questions.map((q, i) => (
                 <div key={i} className="flex items-center gap-4 bg-[#030303] p-3 rounded-xl border border-white/5">
-                  <div className={`w-2 h-2 rounded-full ${i < evalIndex ? 'bg-[#D4121B]' : i === evalIndex ? 'bg-[#FF3B3B] animate-pulse shadow-[0_0_8px_rgba(255,59,59,0.5)]' : 'bg-white/5'}`} />
-                  <p className={`text-[10px] text-left truncate flex-1 font-bold uppercase tracking-widest ${i <= evalIndex ? 'text-[#F5F5F5]' : 'text-[#707070]'}`}>{q.question}</p>
-                  {i < evalIndex && (
+                  <div className={`w-2 h-2 rounded-full ${completedIndices.includes(i) ? 'bg-[#D4121B]' : 'bg-[#FF3B3B] animate-pulse shadow-[0_0_8px_rgba(255,59,59,0.5)]'}`} />
+                  <p className={`text-[10px] text-left truncate flex-1 font-bold uppercase tracking-widest ${completedIndices.includes(i) ? 'text-[#F5F5F5]' : 'text-[#707070]'}`}>{q.question}</p>
+                  {completedIndices.includes(i) && (
                     <div className="bg-[#D4121B]/10 p-1 rounded-full">
                       <svg className="w-3 h-3 text-[#D4121B]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
                     </div>

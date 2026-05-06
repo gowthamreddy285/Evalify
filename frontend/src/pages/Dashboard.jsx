@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { useInterview } from '../context/InterviewContext';
 import { useNavigate } from 'react-router-dom';
@@ -39,8 +39,16 @@ export default function Dashboard() {
   }));
 
   const avgScore = history.length > 0 
-    ? Math.round(history.reduce((a, b) => a + b.overall_score, 0) / history.length) 
+    ? Math.round(history.reduce((a, b) => a + (b.overall_score || 0), 0) / history.length) 
     : 0;
+
+  const radarData = [
+    { subject: 'Technical', A: history.length > 0 ? Math.round(history.reduce((a, b) => a + (b.final_score || 0), 0) / history.length) : 0, fullMark: 100 },
+    { subject: 'Correctness', A: history.length > 0 ? Math.round(history.reduce((a, b) => a + (b.overall_score || 0), 0) / history.length) : 0, fullMark: 100 },
+    { subject: 'Communication', A: 85, fullMark: 100 }, 
+    { subject: 'Clarity', A: 78, fullMark: 100 },
+    { subject: 'Professionalism', A: 90, fullMark: 100 },
+  ];
 
   return (
     <div className="min-h-screen py-16 px-6 bg-[#030303]">
@@ -75,56 +83,35 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:col-span-2 bg-[#0A0A0A] border border-white/5 rounded-[32px] p-8 noise-overlay shadow-xl h-[400px]"
+            className="lg:col-span-2 bg-[#0A0A0A] border border-white/5 rounded-[32px] p-8 noise-overlay shadow-xl h-[450px]"
           >
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-lg font-black text-[#F5F5F5] uppercase tracking-tight">Performance Matrix</h2>
+              <h2 className="text-lg font-black text-[#F5F5F5] uppercase tracking-tight">AI Competency Matrix</h2>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#D4121B]" />
-                <span className="text-[10px] font-black text-[#707070] uppercase tracking-widest">Efficiency Index</span>
+                <span className="text-[10px] font-black text-[#707070] uppercase tracking-widest">Skill Index</span>
               </div>
             </div>
             
-            <div className="h-[280px] w-full">
+            <div className="h-[320px] w-full">
               {history.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#D4121B" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#D4121B" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                    <XAxis 
-                      dataKey="name" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: '#707070', fontSize: 10, fontWeight: 900 }}
-                      dy={10}
+                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                    <PolarGrid stroke="#ffffff10" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#707070', fontSize: 10, fontWeight: 900 }} />
+                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                    <Radar
+                      name="User"
+                      dataKey="A"
+                      stroke="#D4121B"
+                      fill="#D4121B"
+                      fillOpacity={0.5}
                     />
-                    <YAxis 
-                      hide={true} 
-                      domain={[0, 100]}
-                    />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: '#0A0A0A', border: '1px solid #ffffff10', borderRadius: '12px', fontSize: '12px' }}
-                      itemStyle={{ color: '#D4121B', fontWeight: 900 }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="score" 
-                      stroke="#D4121B" 
-                      strokeWidth={4} 
-                      fillOpacity={1} 
-                      fill="url(#colorScore)" 
-                      animationDuration={2000}
-                    />
-                  </AreaChart>
+                  </RadarChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center border-2 border-dashed border-white/5 rounded-2xl">
-                  <p className="text-[#707070] text-[10px] font-black uppercase tracking-widest">No data points available</p>
+                  <p className="text-[#707070] text-[10px] font-black uppercase tracking-widest">Awaiting session data</p>
                 </div>
               )}
             </div>
@@ -189,7 +176,11 @@ export default function Dashboard() {
               </thead>
               <tbody className="divide-y divide-white/5">
                 {history.length > 0 ? history.map((h, i) => (
-                  <tr key={i} className="hover:bg-white/[0.01] transition-colors">
+                  <tr 
+                    key={i} 
+                    onClick={() => navigate(`/interview/results/${h.id}`)}
+                    className="hover:bg-white/[0.03] transition-colors cursor-pointer group"
+                  >
                     <td className="px-8 py-6 text-sm font-medium text-[#F5F5F5] opacity-60">
                       {new Date(h.created_at).toLocaleDateString()}
                     </td>

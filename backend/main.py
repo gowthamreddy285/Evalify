@@ -1,10 +1,14 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 import shutil
 import os
+import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,16 +37,21 @@ async def lifespan(app: FastAPI):
     print("Shutting down...")
 
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="Evalify API",
     description="AI-powered mock interview backend with MongoDB",
     version="2.0.0",
     lifespan=lifespan,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -69,6 +78,10 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: str
 
 
 class AnalyzeJDRequest(BaseModel):
@@ -102,18 +115,28 @@ class CompleteSessionRequest(BaseModel):
     final_score: float
 
 
+from fastapi.security import OAuth2PasswordBearer
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+from auth_utils import decode_access_token
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
 # ───────────────────────────────────────────
-# AUTH DEPENDENCY (Bypassed — guest mode)
+# AUTH DEPENDENCY
 # ───────────────────────────────────────────
-async def get_current_user():
-    user = await User.find_one(User.email == "guest@example.com")
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+        
+    user = await User.find_one(User.email == email)
     if not user:
-        user = User(
-            name="Guest User",
-            email="guest@example.com",
-            hashed_password="---",
-        )
-        await user.insert()
+        raise HTTPException(status_code=404, detail="User not found")
     return user
 
 
@@ -141,11 +164,37 @@ async def signup(user_data: UserCreate):
 @app.post("/login", response_model=Token)
 async def login(user_data: UserLogin):
     db_user = await User.find_one(User.email == user_data.email)
-    if not db_user or not verify_password(user_data.password, db_user.hashed_password):
+    if not db_user or db_user.hashed_password == "---" or not verify_password(user_data.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
 
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.post("/google-login", response_model=Token)
+async def google_login(req: GoogleLoginRequest):
+    try:
+        # Verify the Google token
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        idinfo = id_token.verify_oauth2_token(req.credential, google_requests.Request(), client_id)
+        
+        email = idinfo['email']
+        name = idinfo.get('name', 'Google User')
+        
+        user = await User.find_one(User.email == email)
+        if not user:
+            user = User(
+                name=name,
+                email=email,
+                hashed_password="---", # Password-less for Google users
+            )
+            await user.insert()
+            
+        access_token = create_access_token(data={"sub": user.email})
+        return {"access_token": access_token, "token_type": "bearer"}
+    except Exception as e:
+        print(f"Google login error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid Google credentials")
 
 
 @app.get("/me")
@@ -168,8 +217,9 @@ async def start_session(req: StartSessionRequest, user: User = Depends(get_curre
     saves everything to MongoDB, and returns session_id + questions.
     """
     try:
-        # 1. Generate questions via LLM
-        questions = generate_questions(
+        # 1. Generate questions via LLM (wrapped in thread to avoid blocking)
+        questions = await asyncio.to_thread(
+            generate_questions,
             resume_data=req.resume_data,
             jd_data=req.jd_data,
             difficulty=req.difficulty,
@@ -297,6 +347,7 @@ async def get_sessions(user: User = Depends(get_current_user)):
             "difficulty": s.difficulty,
             "job_role": s.jd_data.get("job_role", "General Interview"),
             "final_score": s.final_score,
+            "overall_score": s.final_score or 0,
             "total_questions": s.total_questions,
             "answer_mode": s.answer_mode,
         })
@@ -393,7 +444,7 @@ async def parse_resume_endpoint(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        result = parse_resume(file_path)
+        result = await asyncio.to_thread(parse_resume, file_path)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -412,7 +463,7 @@ async def analyze_jd_endpoint(req: AnalyzeJDRequest):
     Returns: job_role, required_skills, responsibilities, experience_level.
     """
     try:
-        result = analyze_jd(jd_text=req.jd_text, job_role=req.job_role)
+        result = await asyncio.to_thread(analyze_jd, jd_text=req.jd_text, job_role=req.job_role)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -429,7 +480,8 @@ async def generate_questions_endpoint(req: GenerateQuestionsRequest):
     Standalone — use /start-session for full DB integration.
     """
     try:
-        questions = generate_questions(
+        questions = await asyncio.to_thread(
+            generate_questions,
             resume_data=req.resume_data,
             jd_data=req.jd_data,
             difficulty=req.difficulty,
@@ -443,7 +495,9 @@ async def generate_questions_endpoint(req: GenerateQuestionsRequest):
 # 4. EVALUATE TEXT ANSWER
 # ───────────────────────────────────────────
 @app.post("/evaluate-text")
+@limiter.limit("10/hour")
 async def evaluate_text_endpoint(
+    request: Request,
     question: str = Form(...),
     answer: str = Form(...),
 ):
@@ -451,11 +505,15 @@ async def evaluate_text_endpoint(
     Evaluates a typed answer against the question using
     3-layer scoring (AI judge + semantic + keyword) + NLP communication quality.
     """
-    try:
-        semantic_res = evaluate_answer_correctness(question, answer)
-        nlp_res = evaluate_communication_quality(answer)
+    if len(answer) > 2000:
+        raise HTTPException(status_code=400, detail="Answer is too long. Please keep it under 2000 characters.")
 
-        result = evaluate_full_answer(
+    try:
+        semantic_res = await asyncio.to_thread(evaluate_answer_correctness, question, answer)
+        nlp_res = await asyncio.to_thread(evaluate_communication_quality, answer)
+
+        result = await asyncio.to_thread(
+            evaluate_full_answer,
             question,
             answer,
             semantic_res,
@@ -483,13 +541,14 @@ async def evaluate_audio_endpoint(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        audio_res = evaluate_audio(file_path)
+        audio_res = await asyncio.to_thread(evaluate_audio, file_path)
         text_answer = audio_res["transcription"]
 
-        semantic_res = evaluate_answer_correctness(question, text_answer)
-        nlp_res = evaluate_communication_quality(text_answer)
+        semantic_res = await asyncio.to_thread(evaluate_answer_correctness, question, text_answer)
+        nlp_res = await asyncio.to_thread(evaluate_communication_quality, text_answer)
 
-        result = evaluate_full_answer(
+        result = await asyncio.to_thread(
+            evaluate_full_answer,
             question,
             text_answer,
             semantic_res,
@@ -517,7 +576,7 @@ async def transcribe_endpoint(file: UploadFile = File(...)):
     try:
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        return evaluate_audio(file_path)
+        return await asyncio.to_thread(evaluate_audio, file_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

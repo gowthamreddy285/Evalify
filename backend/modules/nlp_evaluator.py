@@ -33,13 +33,35 @@ def clarity_score(text):
     if not sentences:
         return 0
 
+    # 1. Average Sentence Length (Optimal: 12-20 words)
     lengths = [len(sent.text.split()) for sent in sentences]
     avg_length = sum(lengths) / len(lengths)
+    
+    length_score = 0
+    if 12 <= avg_length <= 20:   length_score = 100
+    elif 8 <= avg_length < 12:   length_score = 70
+    elif 20 < avg_length <= 25:  length_score = 70
+    else:                         length_score = 40
 
-    if 12 <= avg_length <= 20:   return 100
-    elif 8 <= avg_length < 12:   return 70
-    elif 20 < avg_length <= 25:  return 70
-    else:                         return 40
+    # 2. Sentence Length Variance (Monotonous length is less engaging)
+    # If all sentences are the same length, variance is 0.
+    if len(lengths) > 1:
+        variance = sum((l - avg_length) ** 2 for l in lengths) / len(lengths)
+        variance_score = min(100, variance * 5) # Heuristic: more variance is better up to a point
+    else:
+        variance_score = 50
+
+    # 3. Word Complexity (Average word length)
+    words = [token.text for token in doc if not token.is_punct and not token.is_space]
+    if words:
+        avg_word_len = sum(len(w) for w in words) / len(words)
+        # Technical answers usually have longer words, but very long is hard to read.
+        if 4 <= avg_word_len <= 6: word_score = 100
+        else: word_score = 70
+    else:
+        word_score = 0
+
+    return round(length_score * 0.5 + variance_score * 0.2 + word_score * 0.3, 2)
 
 
 # ─────────────────────────────────────────────────────────────────

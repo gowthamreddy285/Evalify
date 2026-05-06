@@ -16,3 +16,5 @@ beanie
 pymongo[srv]
 passlib[bcrypt]
 python-jose[cryptography]
+google-auth
+slowapi
