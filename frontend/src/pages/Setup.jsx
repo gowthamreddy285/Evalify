@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useInterview } from '../context/InterviewContext';
-import { generateQuestions } from '../utils/api';
+import { startSession } from '../utils/api';
 import Stepper from '../components/Stepper';
 import ResumeUpload from '../components/ResumeUpload';
 import JDInput from '../components/JDInput';
@@ -18,17 +18,19 @@ export default function Setup() {
     if (!state.jdData) { addToast('Please add a job description', 'error'); return; }
 
     try {
-      addToast('Generating questions...', 'info');
-      const data = await generateQuestions({
+      addToast('Creating session & generating questions...', 'info');
+      const data = await startSession({
         resume_data: state.resumeData,
         jd_data: state.jdData,
         difficulty: state.difficulty,
+        answer_mode: state.answerMode,
       });
-      dispatch({ type: 'SET_QUESTIONS', payload: data.questions || data });
-      addToast('Questions ready! Let\'s go.', 'success');
+      dispatch({ type: 'SET_SESSION_ID', payload: data.session_id });
+      dispatch({ type: 'SET_QUESTIONS', payload: data.questions || [] });
+      addToast('Session created! Let\'s go.', 'success');
       navigate('/interview/session');
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Failed to generate questions', 'error');
+      addToast(err.response?.data?.detail || 'Failed to start session', 'error');
     }
   };
 

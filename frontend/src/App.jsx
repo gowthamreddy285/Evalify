@@ -7,17 +7,13 @@ import Landing from './pages/Landing';
 import Setup from './pages/Setup';
 import Session from './pages/Session';
 import Results from './pages/Results';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Navbar from './components/Navbar';
 
 function ProtectedRoute({ children }) {
-  const { token, loading } = useAuth();
-  if (loading) return null;
-  return token ? children : <Navigate to="/login" />;
+  return children;
 }
 
 
@@ -32,8 +28,6 @@ function App() {
             <AnimatePresence mode="wait">
               <Routes>
                 <Route path="/" element={<Landing />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/signup" element={<Signup />} />
                 
                 <Route path="/dashboard" element={
                   <ProtectedRoute><Dashboard /></ProtectedRoute>

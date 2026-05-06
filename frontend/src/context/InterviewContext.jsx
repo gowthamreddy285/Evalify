@@ -9,6 +9,9 @@ const initialState = {
   difficulty: 'medium',
   answerMode: 'type', // 'type' | 'speak'
 
+  // Session tracking (MongoDB)
+  sessionId: null,
+
   // Session
   questions: [],
   currentQuestionIndex: 0,
@@ -29,6 +32,8 @@ function reducer(state, action) {
       return { ...state, difficulty: action.payload };
     case 'SET_ANSWER_MODE':
       return { ...state, answerMode: action.payload };
+    case 'SET_SESSION_ID':
+      return { ...state, sessionId: action.payload };
     case 'SET_QUESTIONS':
       return { ...state, questions: action.payload, currentQuestionIndex: 0, answers: [], results: [] };
     case 'NEXT_QUESTION':
@@ -42,7 +47,7 @@ function reducer(state, action) {
     case 'REMOVE_TOAST':
       return { ...state, toasts: state.toasts.filter(t => t.id !== action.payload) };
     case 'RESET_SESSION':
-      return { ...state, questions: [], currentQuestionIndex: 0, answers: [], results: [] };
+      return { ...state, questions: [], currentQuestionIndex: 0, answers: [], results: [], sessionId: null };
     case 'RESET_ALL':
       return { ...initialState };
     default:

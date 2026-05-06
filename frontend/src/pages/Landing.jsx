@@ -25,17 +25,7 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-black text-[#F5F5F5]">
-      {/* HEADER */}
-      <nav className="absolute top-0 left-0 w-full z-50 px-8 py-8 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#D4121B] shadow-[0_0_8px_#D4121B]" />
-          <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#F5F5F5]">MockPrep</span>
-        </div>
-        <div className="flex items-center gap-6">
-          <button onClick={() => navigate('/login')} className="text-[10px] font-black uppercase tracking-widest text-[#707070] hover:text-[#D4121B] transition-colors cursor-pointer">Login</button>
-          <button onClick={() => navigate('/signup')} className="px-6 py-2.5 rounded-lg border border-[#D4121B]/30 bg-[#D4121B]/5 text-[#D4121B] text-[10px] font-black uppercase tracking-widest hover:bg-[#D4121B] hover:text-white transition-all cursor-pointer">Start Free</button>
-        </div>
-      </nav>
+      {/* HEADER removed to avoid collision with global Navbar */}
 
       {/* ═══ HERO ═══ */}
       <section className="relative min-h-screen flex items-center overflow-hidden">
@@ -197,7 +187,7 @@ export default function Landing() {
       {/* ═══ FOOTER ═══ */}
       <footer className="border-t border-[#1A1A1A] py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm font-bold text-[#F0F0FF] tracking-[-0.01em]">MockPrep</p>
+          <p className="text-sm font-bold text-[#F0F0FF] tracking-[-0.01em]">Evalify</p>
           <p className="text-xs text-[#8B8BA0]">Built with Groq + React</p>
         </div>
       </footer>

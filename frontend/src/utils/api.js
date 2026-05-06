@@ -26,7 +26,7 @@ export async function analyzeJD({ jd_text = '', job_role = '' }) {
 }
 
 // ═══════════════════════════════════════════
-// GENERATE QUESTIONS
+// GENERATE QUESTIONS (standalone, no session)
 // ═══════════════════════════════════════════
 export async function generateQuestions({ resume_data, jd_data, difficulty }) {
   const { data } = await API.post('/generate-questions', {
@@ -34,6 +34,60 @@ export async function generateQuestions({ resume_data, jd_data, difficulty }) {
     jd_data,
     difficulty,
   });
+  return data;
+}
+
+// ═══════════════════════════════════════════
+// START SESSION (creates session + generates questions)
+// ═══════════════════════════════════════════
+export async function startSession({ resume_data, jd_data, difficulty, answer_mode }) {
+  const { data } = await API.post('/start-session', {
+    resume_data,
+    jd_data,
+    difficulty,
+    answer_mode,
+  });
+  return data;
+}
+
+// ═══════════════════════════════════════════
+// SAVE ANSWER (individual answer with scores)
+// ═══════════════════════════════════════════
+export async function saveAnswer({ session_id, question_id, candidate_answer, reference_answer, scores, feedback }) {
+  const { data } = await API.post('/save-answer', {
+    session_id,
+    question_id,
+    candidate_answer,
+    reference_answer,
+    scores,
+    feedback,
+  });
+  return data;
+}
+
+// ═══════════════════════════════════════════
+// COMPLETE SESSION
+// ═══════════════════════════════════════════
+export async function completeSession(session_id, final_score) {
+  const { data } = await API.post(`/complete-session/${session_id}`, {
+    final_score,
+  });
+  return data;
+}
+
+// ═══════════════════════════════════════════
+// GET SESSIONS (history)
+// ═══════════════════════════════════════════
+export async function getSessions() {
+  const { data } = await API.get('/sessions');
+  return data;
+}
+
+// ═══════════════════════════════════════════
+// GET SESSION DETAIL
+// ═══════════════════════════════════════════
+export async function getSessionDetail(session_id) {
+  const { data } = await API.get(`/sessions/${session_id}`);
   return data;
 }
 

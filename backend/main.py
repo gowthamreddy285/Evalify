@@ -1,21 +1,17 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
+from contextlib import asynccontextmanager
 import shutil
 import os
 from dotenv import load_dotenv
-from sqlalchemy.orm import Session
-from jose import JWTError, jwt
 
 load_dotenv()
 
-import models
-from database import engine, get_db
+from database import init_db
 from auth_utils import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM
-
-# Create tables
-models.Base.metadata.create_all(bind=engine)
+from models import User, InterviewSession, Question, Answer, SessionStatus, Scores, Feedback
 
 from modules.resume_parser import parse_resume
 from modules.jd_analyzer import analyze_jd
@@ -25,10 +21,23 @@ from modules.semantic import evaluate_answer_correctness
 from modules.nlp_evaluator import evaluate_communication_quality
 from modules.feedback_engine import evaluate_full_answer
 
+
+# ───────────────────────────────────────────
+# APP LIFESPAN (MongoDB init on startup)
+# ───────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    print("MongoDB connected & Beanie initialized")
+    yield
+    print("Shutting down...")
+
+
 app = FastAPI(
-    title="MockPrep API",
-    description="AI-powered mock interview backend",
-    version="1.0.0",
+    title="Evalify API",
+    description="AI-powered mock interview backend with MongoDB",
+    version="2.0.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -44,20 +53,23 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 # ───────────────────────────────────────────
-# SCHEMAS
+# SCHEMAS (request/response models)
 # ───────────────────────────────────────────
 class UserCreate(BaseModel):
     name: str
     email: EmailStr
     password: str
 
+
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+
 class Token(BaseModel):
     access_token: str
     token_type: str
+
 
 class AnalyzeJDRequest(BaseModel):
     jd_text: Optional[str] = ""
@@ -69,83 +81,302 @@ class GenerateQuestionsRequest(BaseModel):
     jd_data: dict
     difficulty: Optional[str] = "medium"
 
-class SaveResultRequest(BaseModel):
-    job_role: str
-    difficulty: str
-    overall_score: float
-    details: dict
 
-from fastapi.security import OAuth2PasswordBearer
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+class StartSessionRequest(BaseModel):
+    resume_data: dict
+    jd_data: dict
+    difficulty: Optional[str] = "medium"
+    answer_mode: Optional[str] = "type"
 
-# Auth Dependency
-async def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
+
+class SaveAnswerRequest(BaseModel):
+    session_id: str
+    question_id: str
+    candidate_answer: str
+    reference_answer: Optional[str] = ""
+    scores: Optional[Dict[str, Any]] = {}
+    feedback: Optional[Dict[str, Any]] = {}
+
+
+class CompleteSessionRequest(BaseModel):
+    final_score: float
+
+
+# ───────────────────────────────────────────
+# AUTH DEPENDENCY (Bypassed — guest mode)
+# ───────────────────────────────────────────
+async def get_current_user():
+    user = await User.find_one(User.email == "guest@example.com")
+    if not user:
+        user = User(
+            name="Guest User",
+            email="guest@example.com",
+            hashed_password="---",
+        )
+        await user.insert()
     return user
+
 
 # ───────────────────────────────────────────
 # AUTH ENDPOINTS
 # ───────────────────────────────────────────
 @app.post("/signup", response_model=Token)
-async def signup(user: UserCreate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if db_user:
+async def signup(user_data: UserCreate):
+    existing = await User.find_one(User.email == user_data.email)
+    if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_pwd = get_password_hash(user.password)
-    new_user = models.User(name=user.name, email=user.email, hashed_password=hashed_pwd)
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
+
+    hashed_pwd = get_password_hash(user_data.password)
+    new_user = User(
+        name=user_data.name,
+        email=user_data.email,
+        hashed_password=hashed_pwd,
+    )
+    await new_user.insert()
+
     access_token = create_access_token(data={"sub": new_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @app.post("/login", response_model=Token)
-async def login(user: UserLogin, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if not db_user or not verify_password(user.password, db_user.hashed_password):
+async def login(user_data: UserLogin):
+    db_user = await User.find_one(User.email == user_data.email)
+    if not db_user or not verify_password(user_data.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
-    
+
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @app.get("/me")
-async def get_me(user: models.User = Depends(get_current_user)):
+async def get_me(user: User = Depends(get_current_user)):
     return {
-        "id": user.id,
+        "id": str(user.id),
         "name": user.name,
         "email": user.email,
-        "created_at": user.created_at
+        "created_at": user.created_at,
     }
 
-@app.post("/save-result")
-async def save_interview_result(req: SaveResultRequest, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    new_result = models.InterviewResult(
-        user_id=user.id,
-        job_role=req.job_role,
-        difficulty=req.difficulty,
-        overall_score=req.overall_score,
-        details=req.details
-    )
-    db.add(new_result)
-    db.commit()
-    return {"message": "Result saved successfully"}
 
+# ───────────────────────────────────────────
+# SESSION MANAGEMENT (NEW)
+# ───────────────────────────────────────────
+@app.post("/start-session")
+async def start_session(req: StartSessionRequest, user: User = Depends(get_current_user)):
+    """
+    Creates a new interview session, generates questions,
+    saves everything to MongoDB, and returns session_id + questions.
+    """
+    try:
+        # 1. Generate questions via LLM
+        questions = generate_questions(
+            resume_data=req.resume_data,
+            jd_data=req.jd_data,
+            difficulty=req.difficulty,
+        )
+
+        # 2. Create session document
+        session = InterviewSession(
+            user_id=str(user.id),
+            resume_data=req.resume_data,
+            jd_data=req.jd_data,
+            difficulty=req.difficulty,
+            answer_mode=req.answer_mode,
+            total_questions=len(questions),
+            status=SessionStatus.ongoing,
+        )
+        await session.insert()
+
+        # 3. Save each question to DB
+        saved_questions = []
+        for i, q in enumerate(questions):
+            q_text = q.get("question", q) if isinstance(q, dict) else str(q)
+            q_type = q.get("type", "technical") if isinstance(q, dict) else "technical"
+            q_topic = q.get("topic", "") if isinstance(q, dict) else ""
+
+            question_doc = Question(
+                session_id=str(session.id),
+                user_id=str(user.id),
+                question=q_text,
+                type=q_type,
+                topic=q_topic,
+                order=i + 1,
+            )
+            await question_doc.insert()
+            saved_questions.append({
+                "id": str(question_doc.id),
+                "question": q_text,
+                "type": q_type,
+                "topic": q_topic,
+                "order": i + 1,
+            })
+
+        return {
+            "session_id": str(session.id),
+            "questions": saved_questions,
+            "total_questions": len(saved_questions),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/save-answer")
+async def save_answer(req: SaveAnswerRequest, user: User = Depends(get_current_user)):
+    """
+    Saves a single evaluated answer to the answers collection.
+    Called from the Results page after each answer is evaluated.
+    """
+    # Map scores dict to Scores model
+    scores_obj = Scores(
+        correctness=req.scores.get("correctness", 0),
+        ai_judge=req.scores.get("ai_judge", 0),
+        similarity=req.scores.get("similarity", 0),
+        keyword_coverage=req.scores.get("keyword_coverage", 0),
+        communication=req.scores.get("communication", 0),
+        grammar=req.scores.get("grammar", 0),
+        clarity=req.scores.get("clarity", 0),
+        professionalism=req.scores.get("professionalism", 0),
+        length=req.scores.get("length", 0),
+        delivery=req.scores.get("delivery", 0),
+        final=req.scores.get("final", req.scores.get("final_score", 0)),
+    )
+
+    # Map feedback dict to Feedback model
+    feedback_obj = Feedback(
+        strengths=req.feedback.get("strengths", []),
+        weaknesses=req.feedback.get("weaknesses", []),
+        improvement_tips=req.feedback.get("improvement_tips", []),
+        overall_summary=req.feedback.get("overall_summary", ""),
+    )
+
+    answer = Answer(
+        session_id=req.session_id,
+        question_id=req.question_id,
+        user_id=str(user.id),
+        candidate_answer=req.candidate_answer,
+        reference_answer=req.reference_answer,
+        scores=scores_obj,
+        feedback=feedback_obj,
+    )
+    await answer.insert()
+
+    return {"message": "Answer saved", "answer_id": str(answer.id)}
+
+
+@app.post("/complete-session/{session_id}")
+async def complete_session(session_id: str, req: CompleteSessionRequest, user: User = Depends(get_current_user)):
+    """
+    Marks a session as completed and stores the final score.
+    """
+    session = await InterviewSession.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.status = SessionStatus.completed
+    session.final_score = req.final_score
+    await session.save()
+
+    return {"message": "Session completed", "final_score": req.final_score}
+
+
+@app.get("/sessions")
+async def get_sessions(user: User = Depends(get_current_user)):
+    """
+    Returns all sessions for the current user (replaces /history).
+    """
+    sessions = await InterviewSession.find(
+        InterviewSession.user_id == str(user.id)
+    ).sort(-InterviewSession.created_at).to_list()
+
+    result = []
+    for s in sessions:
+        result.append({
+            "id": str(s.id),
+            "created_at": s.created_at,
+            "status": s.status,
+            "difficulty": s.difficulty,
+            "job_role": s.jd_data.get("job_role", "General Interview"),
+            "final_score": s.final_score,
+            "total_questions": s.total_questions,
+            "answer_mode": s.answer_mode,
+        })
+    return result
+
+
+@app.get("/sessions/{session_id}")
+async def get_session_detail(session_id: str, user: User = Depends(get_current_user)):
+    """
+    Returns full session details including questions and answers.
+    """
+    session = await InterviewSession.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    questions = await Question.find(
+        Question.session_id == session_id
+    ).sort(Question.order).to_list()
+
+    answers = await Answer.find(
+        Answer.session_id == session_id
+    ).to_list()
+
+    # Map answers by question_id for easy lookup
+    answers_map = {a.question_id: a for a in answers}
+
+    questions_with_answers = []
+    for q in questions:
+        q_id = str(q.id)
+        ans = answers_map.get(q_id)
+        questions_with_answers.append({
+            "id": q_id,
+            "question": q.question,
+            "type": q.type,
+            "topic": q.topic,
+            "order": q.order,
+            "answer": {
+                "candidate_answer": ans.candidate_answer if ans else "",
+                "reference_answer": ans.reference_answer if ans else "",
+                "scores": ans.scores.model_dump() if ans else {},
+                "feedback": ans.feedback.model_dump() if ans else {},
+                "answered_at": ans.answered_at if ans else None,
+            } if ans else None,
+        })
+
+    return {
+        "id": str(session.id),
+        "created_at": session.created_at,
+        "status": session.status,
+        "resume_data": session.resume_data,
+        "jd_data": session.jd_data,
+        "difficulty": session.difficulty,
+        "answer_mode": session.answer_mode,
+        "final_score": session.final_score,
+        "total_questions": session.total_questions,
+        "questions": questions_with_answers,
+    }
+
+
+# ───────────────────────────────────────────
+# BACKWARD COMPAT: /history & /save-result
+# ───────────────────────────────────────────
 @app.get("/history")
-async def get_history(db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    results = db.query(models.InterviewResult).filter(models.InterviewResult.user_id == user.id).order_by(models.InterviewResult.created_at.desc()).all()
-    return results
+async def get_history(user: User = Depends(get_current_user)):
+    """Backward-compatible history endpoint — wraps /sessions."""
+    sessions = await InterviewSession.find(
+        InterviewSession.user_id == str(user.id)
+    ).sort(-InterviewSession.created_at).to_list()
+
+    return [
+        {
+            "id": str(s.id),
+            "job_role": s.jd_data.get("job_role", "General Interview"),
+            "difficulty": s.difficulty,
+            "overall_score": s.final_score or 0,
+            "created_at": s.created_at,
+            "status": s.status,
+        }
+        for s in sessions
+    ]
 
 
 # ───────────────────────────────────────────
@@ -157,7 +388,6 @@ async def parse_resume_endpoint(file: UploadFile = File(...)):
     Accepts a PDF resume, extracts text, and returns
     structured data (name, skills, projects, experience, education).
     """
-    # Save uploaded file
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     try:
         with open(file_path, "wb") as buffer:
@@ -168,7 +398,6 @@ async def parse_resume_endpoint(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # Clean up uploaded file
         if os.path.exists(file_path):
             os.remove(file_path)
 
@@ -190,13 +419,14 @@ async def analyze_jd_endpoint(req: AnalyzeJDRequest):
 
 
 # ───────────────────────────────────────────
-# 3. GENERATE QUESTIONS
+# 3. GENERATE QUESTIONS (standalone, no session)
 # ───────────────────────────────────────────
 @app.post("/generate-questions")
 async def generate_questions_endpoint(req: GenerateQuestionsRequest):
     """
     Uses resume + JD data + difficulty to generate
     personalized interview questions via LLM.
+    Standalone — use /start-session for full DB integration.
     """
     try:
         questions = generate_questions(
@@ -300,4 +530,4 @@ async def transcribe_endpoint(file: UploadFile = File(...)):
 # ───────────────────────────────────────────
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "database": "mongodb"}

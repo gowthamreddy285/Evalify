@@ -13,7 +13,7 @@
   --color-warning: #FF4444;
   --color-text: #F5F5F5;
   --color-muted: #707070;
-  --color-accent: #6C63FF;
+  --color-accent: #D4121B;
 
   --font-sans: 'Outfit', 'Inter', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -273,7 +273,7 @@ body {
 .wave-bar {
   width: 4px;
   border-radius: 99px;
-  background: #FF6B6B;
+  background: #D4121B;
 }
 
 .wave-bar:nth-child(1) { animation: wave-1 0.8s ease-in-out infinite; }
@@ -332,7 +332,7 @@ body {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid #FF6B6B;
+  border: 2px solid #D4121B;
   animation: pulse-ring 1.5s ease-out infinite;
 }
 

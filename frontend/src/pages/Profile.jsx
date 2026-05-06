@@ -30,16 +30,16 @@ export default function Profile() {
                 {user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
               <h1 className="text-3xl font-black text-[#F5F5F5] uppercase tracking-tighter mb-2">{user?.name}</h1>
-              <p className="text-[#707070] text-[10px] font-black uppercase tracking-[0.3em]">{user?.email}</p>
+              <p className="text-[#D4121B]/80 text-[10px] font-black uppercase tracking-[0.3em]">{user?.email}</p>
             </div>
 
             <div className="space-y-8">
               <div className="p-8 rounded-3xl bg-[#030303] border border-white/5">
-                <p className="text-[10px] font-black text-[#707070] uppercase tracking-widest mb-6 italic">Identity Matrix</p>
+                <p className="text-[10px] font-black text-[#D4121B]/40 uppercase tracking-widest mb-6 italic">Identity Matrix</p>
                 
                 <div className="space-y-6">
                   <div>
-                    <label className="block text-[10px] font-black text-[#333] uppercase tracking-widest mb-2 ml-1">Full Name</label>
+                    <label className="block text-[10px] font-black text-[#D4121B]/60 uppercase tracking-widest mb-2 ml-1">Full Name</label>
                     {editing ? (
                       <input 
                         type="text" 
@@ -53,13 +53,13 @@ export default function Profile() {
                   </div>
                   
                   <div>
-                    <label className="block text-[10px] font-black text-[#333] uppercase tracking-widest mb-2 ml-1">Email Authority</label>
-                    <p className="text-lg font-black text-[#707070] tracking-tight uppercase px-1">{user?.email}</p>
+                    <label className="block text-[10px] font-black text-[#D4121B]/60 uppercase tracking-widest mb-2 ml-1">Email Authority</label>
+                    <p className="text-lg font-black text-[#D4121B]/40 tracking-tight uppercase px-1">{user?.email}</p>
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-[#333] uppercase tracking-widest mb-2 ml-1">Archive Induction</label>
-                    <p className="text-lg font-black text-[#707070] tracking-tight uppercase px-1">
+                    <label className="block text-[10px] font-black text-[#D4121B]/60 uppercase tracking-widest mb-2 ml-1">Archive Induction</label>
+                    <p className="text-lg font-black text-[#D4121B]/40 tracking-tight uppercase px-1">
                       {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                     </p>
                   </div>

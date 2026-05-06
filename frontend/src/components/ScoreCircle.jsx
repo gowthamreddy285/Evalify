@@ -45,7 +45,7 @@ export default function ScoreCircle({ score, size = 180, strokeWidth = 10 }) {
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-6xl font-black tracking-tighter" style={{ color }}>{displayNum}</span>
-          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#707070] -mt-1">/100</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#D4121B]/60 -mt-1">/100</span>
         </div>
       </div>
       <p className="mt-8 text-[10px] font-black uppercase tracking-[0.4em]" style={{ color }}>{label}</p>

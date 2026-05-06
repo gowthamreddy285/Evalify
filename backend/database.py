@@ -1,20 +1,19 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from pymongo import AsyncMongoClient
+from beanie import init_beanie
 import os
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./mockprep.db"
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
+DB_NAME = os.getenv("MONGODB_DB_NAME", "evalify")
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+client = AsyncMongoClient(MONGODB_URI)
+db = client[DB_NAME]
 
-Base = declarative_base()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def init_db():
+    """Initialize Beanie ODM with all document models. Call once at app startup."""
+    from models import User, InterviewSession, Question, Answer
+
+    await init_beanie(
+        database=db,
+        document_models=[User, InterviewSession, Question, Answer],
+    )

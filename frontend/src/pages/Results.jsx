@@ -8,12 +8,12 @@ import FeedbackAccordion from '../components/FeedbackAccordion';
 import LoadingOverlay from '../components/LoadingOverlay';
 import { getScoreColor } from '../utils/constants';
 import { useCountUp } from '../hooks/useCountUp';
-import { evaluateText, evaluateAudio } from '../utils/api';
+import { evaluateText, evaluateAudio, saveAnswer, completeSession } from '../utils/api';
 
 export default function Results() {
   const navigate = useNavigate();
   const { state, dispatch, addToast } = useInterview();
-  const { results, questions, answers } = state;
+  const { results, questions, answers, sessionId } = state;
   const [evaluating, setEvaluating] = useState(false);
   const [evalIndex, setEvalIndex] = useState(-1);
   const initialized = useRef(false);
@@ -60,17 +60,55 @@ export default function Results() {
         allResults.push({ ...res, candidate_answer: a.content });
       }
 
-      // Add all at once
+      // Add all results to state
       allResults.forEach(r => dispatch({ type: 'ADD_RESULT', payload: r }));
       
-      // Save to database
+      // Calculate final score
       const avgFinal = Math.round(allResults.reduce((s, r) => s + (r?.scores?.final_score || 0), 0) / allResults.length);
-      await axios.post('http://localhost:8000/save-result', {
-        job_role: state.jdData?.job_role || 'General Interview',
-        difficulty: state.difficulty,
-        overall_score: avgFinal,
-        details: { results: allResults, questions: questions }
-      });
+
+      // Save each answer to MongoDB
+      if (sessionId) {
+        for (let i = 0; i < allResults.length; i++) {
+          const r = allResults[i];
+          const q = questions[i];
+          try {
+            await saveAnswer({
+              session_id: sessionId,
+              question_id: q.id || '',
+              candidate_answer: r.candidate_answer || '',
+              reference_answer: r.reference_answer || '',
+              scores: {
+                correctness: r.scores?.breakdown?.relevance || 0,
+                ai_judge: r.scores?.breakdown?.technical || 0,
+                similarity: r.scores?.breakdown?.similarity || 0,
+                keyword_coverage: r.scores?.breakdown?.keyword_coverage || 0,
+                communication: r.scores?.breakdown?.communication || 0,
+                grammar: r.nlp_analysis?.grammar_score || 0,
+                clarity: r.nlp_analysis?.clarity_score || 0,
+                professionalism: r.nlp_analysis?.professionalism_score || 0,
+                length: r.nlp_analysis?.length_score || 0,
+                delivery: r.scores?.breakdown?.delivery || 0,
+                final: r.scores?.final_score || 0,
+              },
+              feedback: {
+                strengths: r.feedback?.strengths || [],
+                weaknesses: r.feedback?.weaknesses || [],
+                improvement_tips: r.feedback?.improvement_tips || [],
+                overall_summary: r.feedback?.overall_summary || '',
+              },
+            });
+          } catch (err) {
+            console.error(`Failed to save answer ${i + 1}:`, err);
+          }
+        }
+
+        // Complete the session
+        try {
+          await completeSession(sessionId, avgFinal);
+        } catch (err) {
+          console.error('Failed to complete session:', err);
+        }
+      }
 
       addToast('Evaluation complete & saved!', 'success');
     } catch (err) {
@@ -226,9 +264,9 @@ export default function Results() {
                   <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-6">
                       <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-lg shadow-inner">✗</div>
-                      <p className="text-xs font-black uppercase tracking-widest text-[#707070]">Gaps</p>
+                      <p className="text-xs font-black uppercase tracking-widest text-[#B4121B]">Gaps</p>
                     </div>
-                    <ul className="space-y-4">{uniqueWeaknesses.map((w,i) => <li key={i} className="text-sm text-[#F5F5F5] leading-relaxed font-medium flex gap-3"><span className="text-[#707070]">•</span> {w}</li>)}</ul>
+                    <ul className="space-y-4">{uniqueWeaknesses.map((w,i) => <li key={i} className="text-sm text-[#F5F5F5] leading-relaxed font-medium flex gap-3"><span className="text-[#B4121B]">•</span> {w}</li>)}</ul>
                   </div>
                 </div>
               )}

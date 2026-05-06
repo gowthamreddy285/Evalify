@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { useInterview } from '../context/InterviewContext';
 import { useNavigate } from 'react-router-dom';
+import { getSessions } from '../utils/api';
 
 export default function Dashboard() {
   const { user, token } = useAuth();
@@ -23,8 +23,8 @@ export default function Dashboard() {
 
   const fetchHistory = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/history');
-      setHistory(res.data);
+      const data = await getSessions();
+      setHistory(data);
     } catch (err) {
       addToast('Failed to load history', 'error');
     } finally {

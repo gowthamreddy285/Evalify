@@ -12,6 +12,7 @@ language-tool-python
 pdfplumber
 openai-whisper
 python-dotenv
-sqlalchemy
+beanie
+pymongo[srv]
 passlib[bcrypt]
 python-jose[cryptography]

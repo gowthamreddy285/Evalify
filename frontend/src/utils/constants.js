@@ -33,7 +33,7 @@ export const DIFFICULTIES = [
     label: 'Easy',
     questions: 5,
     description: 'Warm-up questions covering fundamental concepts. Great for freshers.',
-    color: '#707070',
+    color: '#7A0C12',
     intensity: 1,
   },
   {
@@ -41,7 +41,7 @@ export const DIFFICULTIES = [
     label: 'Medium',
     questions: 8,
     description: 'Balanced mix of conceptual and applied questions for solid preparation.',
-    color: '#A0A0A0',
+    color: '#B4121B',
     intensity: 2,
   },
   {
@@ -49,7 +49,7 @@ export const DIFFICULTIES = [
     label: 'Hard',
     questions: 10,
     description: 'Deep-dive technical questions that test real-world problem solving.',
-    color: '#B4121B',
+    color: '#D4121B',
     intensity: 3,
   },
   {
@@ -57,7 +57,7 @@ export const DIFFICULTIES = [
     label: 'Extreme',
     questions: 12,
     description: 'Senior-level grilling. System design, edge cases, and curveballs.',
-    color: '#E61A23',
+    color: '#FF3B3B',
     intensity: 4,
   },
 ];
@@ -76,9 +76,10 @@ export const QUESTION_TYPE_COLORS = {
 // SCORE HELPERS
 // ═══════════════════════════════════════════
 export function getScoreColor(score) {
-  if (score >= 70) return '#B4121B';
-  if (score >= 40) return '#707070';
-  return '#333333';
+  if (score >= 85) return '#FF3B3B'; // Vibrant Red
+  if (score >= 70) return '#D4121B'; // Signature Red
+  if (score >= 40) return '#B4121B'; // Deep Red
+  return '#7A0C12'; // Dark Crimson
 }
 
 export function getScoreLabel(score) {
