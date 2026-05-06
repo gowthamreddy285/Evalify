@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evalify Project Report</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        :root {
+            --primary: #D4121B;
+            --bg: #030303;
+            --card: #0A0A0A;
+            --text: #F5F5F5;
+            --muted: #707070;
+            --border: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding-bottom: 60px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 60px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            margin: 0;
+            background: linear-gradient(to right, #fff, #707070);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--primary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        section {
+            margin-bottom: 60px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--primary);
+            border-left: 4px solid var(--primary);
+            padding-left: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        h3 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #fff;
+        }
+
+        p {
+            color: #A0A0A0;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            color: #A0A0A0;
+        }
+
+        li strong {
+            color: #fff;
+        }
+
+        code {
+            background: #1A1A1A;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            color: var(--primary);
+        }
+
+        footer {
+            text-align: center;
+            padding-top: 60px;
+            color: var(--muted);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(212, 18, 27, 0.1);
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        @media print {
+            body { background: white; color: black; padding: 20px; }
+            .card { border: 1px solid #ddd; background: #fafafa; }
+            h1, h2 { background: none; -webkit-text-fill-color: black; color: black; }
+            p, li { color: #333; }
+            .container { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Evalify</h1>
+            <div class="subtitle">Technical Architecture & Development Report</div>
+        </header>
+
+        <section>
+            <h2>1. Project Mission</h2>
+            <p>Evalify is a state-of-the-art AI-powered platform designed to disrupt traditional technical interviewing. By combining high-speed LLM inference with deep NLP analysis, it provides candidates with a high-fidelity simulation of elite-tier company interviews.</p>
+        </section>
+
+        <section>
+            <h2>2. Core Technology Stack</h2>
+            <div class="card">
+                <h3>Backend Infrastructure</h3>
+                <ul>
+                    <li><strong>FastAPI</strong>: High-performance Python framework for building asynchronous APIs.</li>
+                    <li><strong>MongoDB & Beanie OGM</strong>: Scalable NoSQL database with asynchronous object mapping.</li>
+                    <li><strong>Groq (Llama 3.3 70B)</strong>: Lightning-fast LLM inference for question generation and judging.</li>
+                    <li><strong>Sentence-Transformers</strong>: Local embedding model for semantic similarity analysis.</li>
+                    <li><strong>spaCy & LanguageTool</strong>: NLP suite for communication and grammar evaluation.</li>
+                </ul>
+            </div>
+            <div class="card">
+                <h3>Frontend Interface</h3>
+                <ul>
+                    <li><strong>React & Vite</strong>: Modern, reactive UI framework with fast builds.</li>
+                    <li><strong>Framer Motion</strong>: Advanced animation engine for a premium, interactive feel.</li>
+                    <li><strong>Tailwind CSS</strong>: Utility-first CSS for handcrafted design tokens.</li>
+                </ul>
+            </div>
+        </section>
+
+        <section>
+            <h2>3. Intelligence Engine</h2>
+            <div class="card">
+                <div class="badge">Feature</div>
+                <h3>Personalized Questioning</h3>
+                <p>Implemented a dynamic prompt engine that synthesizes the candidate's Resume and the Job Description to generate unique questions. Every question is tailored to the candidate's specific projects and tech stack.</p>
+            </div>
+            <div class="card">
+                <div class="badge">Feature</div>
+                <h3>3-Layer Evaluation Logic</h3>
+                <p>We developed a weighted scoring system that combines:</p>
+                <ul>
+                    <li><strong>AI Judge Score (50%)</strong>: Contextual technical correctness.</li>
+                    <li><strong>Semantic Similarity (30%)</strong>: Meaning-based matching.</li>
+                    <li><strong>Keyword Coverage (20%)</strong>: Technical terminology detection.</li>
+                </ul>
+            </div>
+            <div class="card">
+                <div class="badge">Feature</div>
+                <h3>Delivery Analysis</h3>
+                <p>Integrated Whisper transcription to analyze verbal communication, including filler word detection, pace, and clarity scoring.</p>
+            </div>
+        </section>
+
+        <section>
+            <h2>4. Security & Optimization</h2>
+            <p>We implemented several enterprise-grade security and performance patches:</p>
+            <ul>
+                <li><strong>Async Multi-threading</strong>: Wrapped blocking AI and NLP calls in <code>asyncio.to_thread</code> to ensure the API remains responsive under load.</li>
+                <li><strong>Google OAuth 2.0</strong>: Secure, password-less authentication using Google's trusted identity provider.</li>
+                <li><strong>Rate Limiting</strong>: Integrated <code>slowapi</code> to prevent API abuse and control operational costs.</li>
+                <li><strong>JWT Session Management</strong>: Secure token-based authentication with properly managed environment secrets.</li>
+                <li><strong>CORS Restriction</strong>: Locked down the API to only trust authorized origins.</li>
+            </ul>
+        </section>
+
+        <section>
+            <h2>5. Why We Chose This Path</h2>
+            <p>The goal was to build a <strong>Production-Ready</strong> platform, not just a prototype. By choosing MongoDB, we ensured scalability. By choosing Groq, we ensured real-time responsiveness. By implementing async wrappers and rate limits, we ensured the system could handle multiple users safely and cost-effectively.</p>
+        </section>
+
+        <footer>
+            Evalify Project Documentation &copy; 2024 | Generated by Antigravity AI
+        </footer>
+    </div>
+</body>
+</html>

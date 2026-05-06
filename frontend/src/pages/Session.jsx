@@ -77,9 +77,9 @@ export default function Session() {
   if (!current) return null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#030303]">
+    <div className="min-h-screen flex flex-col bg-[#030303] pt-0">
       {/* Top progress bar */}
-      <div className="fixed top-0 left-0 right-0 z-50">
+      <div className="w-full">
         <ProgressBar value={currentQuestionIndex + 1} max={total} height="h-[4px]" color="#D4121B" />
       </div>
 

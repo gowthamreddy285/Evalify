@@ -1,11 +1,13 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const { logout, token, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  if (loading) return null;
+  // Hide Navbar during active interview session
+  if (loading || location.pathname === '/interview/session') return null;
 
   return (
     <nav className="fixed top-0 left-0 w-full z-50 px-8 py-6 flex items-center justify-between pointer-events-none">
@@ -52,7 +54,7 @@ export default function Navbar() {
               onClick={() => navigate('/signup')} 
               className="bg-[#D4121B] text-white px-6 py-2.5 rounded-xl font-black uppercase tracking-widest text-[10px] btn-shine cursor-pointer shadow-lg shadow-[#D4121B]/20"
             >
-              Join Registry
+              Sign Up
             </button>
           </>
         )}

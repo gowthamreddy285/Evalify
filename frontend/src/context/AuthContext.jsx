@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
 
   const fetchMe = async () => {
     try {
-      const { data } = await axios.get('http://localhost:8000/me');
+      const { data } = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/me`);
       setUser(data);
     } catch (err) {
       console.error("Auth fetch error:", err);

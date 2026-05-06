@@ -35,82 +35,98 @@ export default function Results() {
     setCompletedIndices([]);
     
     try {
-      // 1. Trigger all evaluations in parallel
-      const evaluationPromises = questions.map(async (q, i) => {
+      // Process questions one by one instead of all at once
+      // This is more reliable and doesn't overwhelm the backend
+      const allResults = [];
+      
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
         const a = answers[i];
         
         let res;
-        if (!a || a.content === '[Skipped]') {
-          res = {
-            scores: { final_score: 0, breakdown: { relevance: 0, technical: 0, communication: 0 } },
-            feedback: { overall_summary: 'Question was skipped.', strengths: [], weaknesses: ['Question not answered.'], improvement_tips: ['Always try to provide at least a brief answer.'] },
-            reference_answer: 'Not available for skipped question.',
-            candidate_answer: '[Skipped]'
-          };
-        } else if (a.type === 'audio' && a.audioBlob) {
-          res = await evaluateAudio({ question: q.question, audioBlob: a.audioBlob });
-          res.candidate_answer = a.content;
-        } else {
-          res = await evaluateText({ question: q.question, answer: a.content });
-          res.candidate_answer = a.content;
-        }
-
-        // Save individual answer to MongoDB if session exists
-        if (sessionId) {
-          try {
-            await saveAnswer({
-              session_id: sessionId,
-              question_id: q.id || '',
-              candidate_answer: res.candidate_answer || '',
-              reference_answer: res.reference_answer || '',
-              scores: {
-                correctness: res.scores?.breakdown?.relevance || 0,
-                ai_judge: res.scores?.breakdown?.technical || 0,
-                similarity: res.scores?.breakdown?.similarity || 0,
-                keyword_coverage: res.scores?.breakdown?.keyword_coverage || 0,
-                communication: res.scores?.breakdown?.communication || 0,
-                grammar: res.nlp_analysis?.grammar_score || 0,
-                clarity: res.nlp_analysis?.clarity_score || 0,
-                professionalism: res.nlp_analysis?.professionalism_score || 0,
-                length: res.nlp_analysis?.length_score || 0,
-                delivery: res.scores?.breakdown?.delivery || 0,
-                final: res.scores?.final_score || 0,
-              },
-              feedback: {
-                strengths: res.feedback?.strengths || [],
-                weaknesses: res.feedback?.weaknesses || [],
-                improvement_tips: res.feedback?.improvement_tips || [],
-                overall_summary: res.feedback?.overall_summary || '',
-              },
-            });
-          } catch (err) {
-            console.error(`Failed to save answer ${i + 1}:`, err);
-          }
-        }
-
-        setCompletedIndices(prev => [...prev, i]);
-        return res;
-      });
-
-      const allResults = await Promise.all(evaluationPromises);
-
-      // 2. Update state with all results
-      allResults.forEach(r => dispatch({ type: 'ADD_RESULT', payload: r }));
-      
-      // 3. Complete the session
-      const avgFinal = Math.round(allResults.reduce((s, r) => s + (r?.scores?.final_score || 0), 0) / allResults.length);
-      if (sessionId) {
         try {
-          await completeSession(sessionId, avgFinal);
-        } catch (err) {
-          console.error('Failed to complete session:', err);
+          if (!a || a.content === '[Skipped]') {
+            res = {
+              scores: { final_score: 0, breakdown: { relevance: 0, technical: 0, communication: 0 } },
+              feedback: { overall_summary: 'Question was skipped.', strengths: [], weaknesses: ['Question not answered.'], improvement_tips: ['Always try to provide at least a brief answer.'] },
+              reference_answer: 'Not available for skipped question.',
+              candidate_answer: '[Skipped]'
+            };
+          } else if (a.type === 'audio' && a.audioBlob) {
+            res = await evaluateAudio({ question: q.question, audioBlob: a.audioBlob });
+            res.candidate_answer = a.content;
+          } else {
+            res = await evaluateText({ question: q.question, answer: a.content });
+            res.candidate_answer = a.content;
+          }
+
+          // Save individual answer to MongoDB if session exists
+          if (sessionId) {
+            try {
+              await saveAnswer({
+                session_id: sessionId,
+                question_id: q.id || '',
+                candidate_answer: res.candidate_answer || '',
+                reference_answer: res.reference_answer || '',
+                scores: {
+                  correctness: res.scores?.breakdown?.relevance || 0,
+                  ai_judge: res.scores?.breakdown?.technical || 0,
+                  similarity: res.scores?.breakdown?.similarity || 0,
+                  keyword_coverage: res.scores?.breakdown?.keyword_coverage || 0,
+                  communication: res.scores?.breakdown?.communication || 0,
+                  grammar: res.nlp_analysis?.grammar_score || 0,
+                  clarity: res.nlp_analysis?.clarity_score || 0,
+                  professionalism: res.nlp_analysis?.professionalism_score || 0,
+                  length: res.nlp_analysis?.length_score || 0,
+                  delivery: res.scores?.breakdown?.delivery || 0,
+                  final: res.scores?.final_score || 0,
+                },
+                feedback: {
+                  strengths: res.feedback?.strengths || [],
+                  weaknesses: res.feedback?.weaknesses || [],
+                  improvement_tips: res.feedback?.improvement_tips || [],
+                  overall_summary: res.feedback?.overall_summary || '',
+                },
+              });
+            } catch (saveErr) {
+              console.error(`Failed to save answer ${i + 1}:`, saveErr);
+            }
+          }
+          
+          allResults.push(res);
+          dispatch({ type: 'ADD_RESULT', payload: res });
+          setCompletedIndices(prev => [...prev, i]);
+        } catch (itemErr) {
+          console.error(`Evaluation failed for question ${i + 1}:`, itemErr);
+          // Add a placeholder result so the app doesn't break
+          const errorRes = {
+            scores: { final_score: 0, breakdown: { relevance: 0, technical: 0, communication: 0 } },
+            feedback: { overall_summary: 'Evaluation failed for this question.', strengths: [], weaknesses: ['System error during evaluation.'], improvement_tips: ['Try again later.'] },
+            reference_answer: 'Error during evaluation.',
+            candidate_answer: a?.content || ''
+          };
+          allResults.push(errorRes);
+          dispatch({ type: 'ADD_RESULT', payload: errorRes });
+          setCompletedIndices(prev => [...prev, i]);
         }
       }
 
-      addToast('Evaluation complete & saved!', 'success');
+      // 3. Complete the session
+      const validResults = allResults.filter(r => r != null);
+      if (validResults.length > 0) {
+        const avgFinal = Math.round(validResults.reduce((s, r) => s + (r?.scores?.final_score || 0), 0) / validResults.length);
+        if (sessionId) {
+          try {
+            await completeSession(sessionId, avgFinal);
+          } catch (err) {
+            console.error('Failed to complete session:', err);
+          }
+        }
+        addToast('Evaluation complete & saved!', 'success');
+      }
     } catch (err) {
       console.error(err);
-      addToast('Some answers could not be evaluated.', 'error');
+      addToast('An error occurred during report generation.', 'error');
     } finally {
       setEvaluating(false);
     }

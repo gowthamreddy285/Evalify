@@ -495,7 +495,7 @@ async def generate_questions_endpoint(req: GenerateQuestionsRequest):
 # 4. EVALUATE TEXT ANSWER
 # ───────────────────────────────────────────
 @app.post("/evaluate-text")
-@limiter.limit("10/hour")
+@limiter.limit("100/hour")
 async def evaluate_text_endpoint(
     request: Request,
     question: str = Form(...),
