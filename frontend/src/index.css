@@ -290,8 +290,8 @@ body {
   height: 2px;
   background-image: repeating-linear-gradient(
     90deg,
-    #2A2A3A 0px,
-    #2A2A3A 8px,
+    #1A1A1A 0px,
+    #1A1A1A 8px,
     transparent 8px,
     transparent 16px
   );
@@ -336,66 +336,5 @@ body {
   animation: pulse-ring 1.5s ease-out infinite;
 }
 
-/* ═══════════════════════════════════════════
-   PRINT STYLES (Report Generation)
-   ═══════════════════════════════════════════ */
-@media print {
-  body {
-    background: white !important;
-    color: #1A1A24 !important;
-    padding: 0 !important;
-  }
 
-  .min-h-screen {
-    min-h: auto !important;
-    padding: 0 !important;
-  }
-
-  .no-print {
-    display: none !important;
-  }
-
-  .print-only {
-    display: block !important;
-  }
-
-  .noise-overlay::before {
-    display: none !important;
-  }
-
-  /* Ensure colors are preserved in PDF */
-  * {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  @page {
-    margin: 2cm;
-  }
-
-  .bg-[#1A1A24] {
-    background: #F8F8FA !important;
-    border-color: #E2E2E8 !important;
-  }
-
-  .text-[#F0F0FF] {
-    color: #1A1A24 !important;
-  }
-
-  .text-[#8B8BA0] {
-    color: #646470 !important;
-  }
-
-  .border-[#2A2A3A] {
-    border-color: #E2E2E8 !important;
-  }
-
-  button {
-    display: none !important;
-  }
-}
-
-.print-only {
-  display: none;
-}
 

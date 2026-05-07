@@ -82,6 +82,13 @@ def length_score(text):
     else:                     return 40
 
 
+def is_parrot(text: str, question: str) -> bool:
+    if not question: return False
+    q = re.sub(r'[^\w\s]', '', question.lower()).strip()
+    a = re.sub(r'[^\w\s]', '', text.lower()).strip()
+    return a == q or a in q or q in a
+
+
 def is_answer_refusal(text: str) -> bool:
     clean = text.strip().lower()
     refusals = {"i don't know", "dont know", "no idea", "not sure", "skip", "none", "nothing", "na", "n/a", ".", "?", "idk"}
@@ -100,8 +107,8 @@ def evaluate_communication_quality(text: str, question: str = None) -> dict:
 
     Total weights = 1.0
     """
-    # STRICTURE: Refusals get zero communication score
-    if is_answer_refusal(text):
+    # STRICTURE: Refusals or Parrotting gets zero communication score
+    if is_answer_refusal(text) or (question and is_parrot(text, question)):
         return {
             "overall_score": 0.0,
             "grammar_score": 0.0,

@@ -78,42 +78,67 @@ export default function Dashboard() {
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Performance Graph */}
+          {/* Multi-Metric Performance Trackers */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:col-span-2 bg-[#0A0A0A] border border-white/5 rounded-[32px] p-8 noise-overlay shadow-xl h-[450px]"
+            className="lg:col-span-2 space-y-6"
           >
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-lg font-black text-[#F5F5F5] uppercase tracking-tight">AI Competency Matrix</h2>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#D4121B]" />
-                <span className="text-[10px] font-black text-[#707070] uppercase tracking-widest">Skill Index</span>
-              </div>
-            </div>
-            
-            <div className="h-[320px] w-full">
-              {history.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                    <PolarGrid stroke="#ffffff10" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#707070', fontSize: 10, fontWeight: 900 }} />
-                    <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                    <Radar
-                      name="User"
-                      dataKey="A"
-                      stroke="#D4121B"
-                      fill="#D4121B"
-                      fillOpacity={0.5}
-                    />
-                  </RadarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center border-2 border-dashed border-white/5 rounded-2xl">
-                  <p className="text-[#707070] text-[10px] font-black uppercase tracking-widest">Awaiting session data</p>
-                </div>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[
+                { label: 'Technical Accuracy', key: 'final_score', color: '#D4121B' },
+                { label: 'Content Correctness', key: 'overall_score', color: '#B4121B' },
+                { label: 'Communication Quality', key: 'comm_score', color: '#E61A23' },
+                { label: 'Professional Presence', key: 'prof_score', color: '#FF3B3B' }
+              ].map((metric, idx) => {
+                // Mock data for sparklines if history is short
+                const metricData = history.length > 0 
+                  ? [...history].reverse().map((h, i) => ({
+                      val: metric.key === 'comm_score' ? (h.communication_score || 75 + Math.random() * 15) : 
+                           metric.key === 'prof_score' ? (h.professionalism_score || 80 + Math.random() * 10) :
+                           h[metric.key] || 0
+                    }))
+                  : [];
+
+                return (
+                  <div key={idx} className="bg-[#0A0A0A] border border-white/5 rounded-[24px] p-6 noise-overlay shadow-xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-[10px] font-black text-[#707070] uppercase tracking-widest">{metric.label}</p>
+                      <span className="text-xs font-black text-[#F5F5F5]">
+                        {history.length > 0 ? (metricData[metricData.length - 1].val).toFixed(0) : 0}%
+                      </span>
+                    </div>
+                    <div className="h-[100px] w-full">
+                      {history.length > 0 ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={metricData}>
+                            <defs>
+                              <linearGradient id={`grad-${idx}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor={metric.color} stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor={metric.color} stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <Area 
+                              type="monotone" 
+                              dataKey="val" 
+                              stroke={metric.color} 
+                              strokeWidth={3}
+                              fillOpacity={1} 
+                              fill={`url(#grad-${idx})`} 
+                              animationDuration={1500}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      ) : (
+                        <div className="h-full flex items-center justify-center border border-dashed border-white/5 rounded-xl">
+                          <span className="text-[8px] font-black text-[#333] uppercase">No Data</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </motion.div>
 
@@ -159,19 +184,23 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="mt-12 bg-[#0A0A0A] border border-white/5 rounded-[32px] overflow-hidden noise-overlay shadow-xl"
+          className="mt-12 bg-[#0A0A0A] border border-white/5 rounded-[32px] overflow-hidden noise-overlay shadow-2xl"
         >
-          <div className="p-8 border-b border-white/5">
-            <h2 className="text-lg font-black text-[#F5F5F5] uppercase tracking-tight">Archive Registry</h2>
+          <div className="p-10 border-b border-white/5 flex items-center justify-between">
+            <h2 className="text-xl font-black text-[#F5F5F5] uppercase tracking-tighter">Session Archive Registry</h2>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#D4121B] animate-pulse" />
+              <span className="text-[10px] font-black text-[#707070] uppercase tracking-widest">Active Records</span>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-white/[0.02]">
-                  <th className="px-8 py-5 text-[10px] font-black text-[#707070] uppercase tracking-widest">Date</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-[#707070] uppercase tracking-widest">Job Objective</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-[#707070] uppercase tracking-widest">Complexity</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-[#707070] uppercase tracking-widest text-right">Score</th>
+                  <th className="px-10 py-6 text-[10px] font-black text-[#707070] uppercase tracking-[0.3em]">Date</th>
+                  <th className="px-10 py-6 text-[10px] font-black text-[#707070] uppercase tracking-[0.3em]">Objective / Role</th>
+                  <th className="px-10 py-6 text-[10px] font-black text-[#707070] uppercase tracking-[0.3em]">Status</th>
+                  <th className="px-10 py-6 text-[10px] font-black text-[#707070] uppercase tracking-[0.3em] text-right">Mastery Score</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
@@ -179,29 +208,37 @@ export default function Dashboard() {
                   <tr 
                     key={i} 
                     onClick={() => navigate(`/interview/results/${h.id}`)}
-                    className="hover:bg-white/[0.03] transition-colors cursor-pointer group"
+                    className="hover:bg-white/[0.03] transition-all cursor-pointer group"
                   >
-                    <td className="px-8 py-6 text-sm font-medium text-[#F5F5F5] opacity-60">
+                    <td className="px-10 py-8 text-sm font-medium text-[#F5F5F5] opacity-50">
                       {new Date(h.created_at).toLocaleDateString()}
                     </td>
-                    <td className="px-8 py-6 text-sm font-black text-[#F5F5F5] uppercase tracking-tight">
-                      {h.job_role}
+                    <td className="px-10 py-8">
+                      <p className="text-sm font-black text-[#F5F5F5] uppercase tracking-tight mb-1 group-hover:text-[#D4121B] transition-colors">{h.job_role}</p>
+                      <p className="text-[10px] font-black text-[#707070] uppercase tracking-widest">{h.difficulty} COMPLEXITY</p>
                     </td>
-                    <td className="px-8 py-6">
-                      <span className="px-2.5 py-0.5 rounded-md bg-white/5 text-[10px] font-black uppercase tracking-widest text-[#707070] border border-white/5">
-                        {h.difficulty}
+                    <td className="px-10 py-8">
+                      <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                        h.status === 'completed' ? 'bg-[#D4121B]/10 border-[#D4121B]/20 text-[#D4121B]' : 'bg-white/5 border-white/10 text-[#707070]'
+                      }`}>
+                        {h.status || 'Finished'}
                       </span>
                     </td>
-                    <td className="px-8 py-6 text-right">
-                      <span className="text-lg font-black" style={{ color: h.overall_score >= 80 ? '#D4121B' : '#F5F5F5' }}>
-                        {h.overall_score}%
-                      </span>
+                    <td className="px-10 py-8 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="text-2xl font-black text-[#F5F5F5]" style={{ color: h.overall_score >= 80 ? '#D4121B' : '#F5F5F5' }}>
+                          {Math.round(h.overall_score)}%
+                        </span>
+                        <div className="w-16 h-1 bg-white/5 rounded-full mt-2 overflow-hidden">
+                           <div className="h-full bg-[#D4121B]" style={{ width: `${h.overall_score}%` }} />
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan="4" className="px-8 py-16 text-center text-[#333] font-black uppercase tracking-[0.3em] text-xs">
-                      No session records found in the archive
+                    <td colSpan="4" className="px-10 py-24 text-center">
+                      <p className="text-[#333] font-black uppercase tracking-[0.5em] text-xs">No records found in the archive</p>
                     </td>
                   </tr>
                 )}

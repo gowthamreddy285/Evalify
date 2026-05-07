@@ -19,7 +19,7 @@ function ToastItem({ toast, onRemove }) {
   const bgMap = {
     success: 'bg-[#00D4AA]/10 border-[#00D4AA]/30',
     error: 'bg-[#FF6B6B]/10 border-[#FF6B6B]/30',
-    info: 'bg-[#6C63FF]/10 border-[#6C63FF]/30',
+    info: 'bg-white/5 border-white/20',
   };
 
   const iconMap = {
@@ -34,7 +34,7 @@ function ToastItem({ toast, onRemove }) {
       </svg>
     ),
     info: (
-      <svg className="w-5 h-5 text-[#6C63FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),

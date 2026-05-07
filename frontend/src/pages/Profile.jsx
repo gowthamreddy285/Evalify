@@ -1,20 +1,45 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
-import { changePassword, deleteAccount } from '../utils/api';
+import { changePassword, deleteAccount, updateProfile } from '../utils/api';
 import { useInterview } from '../context/InterviewContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const { addToast } = useInterview();
   const navigate = useNavigate();
   
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(user?.name || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Sync editedName when user data loads
+  useEffect(() => {
+    if (user?.name) {
+      setEditedName(user.name);
+    }
+  }, [user]);
+
+  const handleUpdateName = async () => {
+    if (!editedName.trim()) return addToast('Name cannot be empty', 'error');
+    setLoading(true);
+    try {
+      await updateProfile({ name: editedName });
+      addToast('Profile updated!', 'success');
+      setIsEditingName(false);
+      refreshUser();
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'Failed to update name';
+      addToast(msg, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
@@ -55,21 +80,58 @@ export default function Profile() {
   return (
     <div className="min-h-screen py-24 px-6 bg-[#030303]">
       <div className="max-w-3xl mx-auto">
-        <div className="mb-12">
-          <h1 className="text-4xl font-black text-[#F5F5F5] uppercase tracking-tighter mb-2">Core Settings.</h1>
-          <p className="text-[#707070] text-sm font-medium tracking-tight">Manage your security protocols and profile status.</p>
+        <div className="mb-12 flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-black text-[#F5F5F5] uppercase tracking-tighter mb-2">Core Settings.</h1>
+            <p className="text-[#707070] text-sm font-medium tracking-tight">System configuration and security protocols.</p>
+          </div>
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="px-6 py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-[10px] font-black uppercase tracking-widest text-[#F5F5F5] rounded-xl transition-all"
+          >
+            ← Back to Dashboard
+          </button>
         </div>
 
         <div className="space-y-8">
-          {/* Security Protocol Section */}
+          {/* Identity Protocol */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-[#0A0A0A] border border-white/5 rounded-[32px] p-10 noise-overlay shadow-2xl"
           >
-            <p className="text-[10px] font-black text-[#707070] uppercase tracking-[0.3em] mb-10">Security Protocol</p>
+            <p className="text-[10px] font-black text-[#707070] uppercase tracking-[0.3em] mb-10">Identity Details</p>
             
-            <form onSubmit={handlePasswordChange} className="space-y-6">
+            <div className="flex items-center gap-8 mb-12">
+              <div className="w-20 h-20 bg-[#D4121B] rounded-2xl flex items-center justify-center text-3xl font-black text-white shadow-xl shadow-[#D4121B]/20 uppercase">
+                {user?.name?.[0] || 'U'}
+              </div>
+              <div className="flex-1">
+                {isEditingName ? (
+                  <div className="flex items-center gap-4">
+                    <input 
+                      type="text" 
+                      value={editedName} 
+                      onChange={(e) => setEditedName(e.target.value)}
+                      className="bg-[#030303] border border-[#D4121B]/40 rounded-xl px-4 py-2 text-xl font-black text-[#F5F5F5] uppercase outline-none focus:ring-1 focus:ring-[#D4121B] transition-all w-full max-w-sm"
+                      autoFocus
+                    />
+                    <button onClick={handleUpdateName} className="text-[10px] font-black uppercase text-[#D4121B] hover:text-[#FF3B3B] transition-all cursor-pointer">Save</button>
+                    <button onClick={() => {setIsEditingName(false); setEditedName(user?.name);}} className="text-[10px] font-black uppercase text-[#707070] hover:text-[#F5F5F5] transition-all cursor-pointer">Cancel</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4 group">
+                    <p className="text-2xl font-black text-[#F5F5F5] uppercase tracking-tight">{user?.name}</p>
+                    <button onClick={() => setIsEditingName(true)} className="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-black uppercase text-[#707070] hover:text-[#D4121B] cursor-pointer">Edit</button>
+                  </div>
+                )}
+                <p className="text-[#707070] text-sm font-medium mt-1">{user?.email}</p>
+              </div>
+            </div>
+            
+            <form onSubmit={handlePasswordChange} className="space-y-6 pt-8 border-t border-white/5">
+              <p className="text-[10px] font-black text-[#D4121B] uppercase tracking-[0.2em] mb-6">Reset Authentication Key</p>
+              
               <div>
                 <label className="block text-[10px] font-black text-[#707070] uppercase tracking-widest mb-3 ml-1">Current Password</label>
                 <input
@@ -107,9 +169,9 @@ export default function Profile() {
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-4 px-8 py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-[#F5F5F5] font-bold rounded-xl transition-all uppercase tracking-widest text-[10px] disabled:opacity-50 cursor-pointer"
+                className="mt-4 px-8 py-4 bg-[#D4121B] hover:bg-[#E61A23] text-white font-bold rounded-xl transition-all uppercase tracking-widest text-[10px] disabled:opacity-50 cursor-pointer shadow-lg shadow-[#D4121B]/10"
               >
-                Reset Authentication Key (Password)
+                Update Password
               </button>
             </form>
           </motion.div>
@@ -129,7 +191,7 @@ export default function Profile() {
             {!showDeleteConfirm ? (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="px-10 py-4 bg-[#D4121B] hover:bg-[#E61A23] text-white font-bold rounded-2xl shadow-xl shadow-[#D4121B]/20 transition-all uppercase tracking-widest text-[10px] cursor-pointer"
+                className="px-10 py-4 bg-[#D4121B]/10 border border-[#D4121B]/20 text-[#D4121B] hover:bg-[#D4121B] hover:text-white font-bold rounded-2xl transition-all uppercase tracking-widest text-[10px] cursor-pointer"
               >
                 Terminate Profile
               </button>
@@ -138,7 +200,7 @@ export default function Profile() {
                 <button
                   onClick={handleDeleteAccount}
                   disabled={loading}
-                  className="px-10 py-4 bg-white text-black hover:bg-gray-200 font-bold rounded-2xl transition-all uppercase tracking-widest text-[10px] cursor-pointer"
+                  className="px-10 py-4 bg-[#D4121B] text-white hover:bg-[#E61A23] font-bold rounded-2xl transition-all uppercase tracking-widest text-[10px] cursor-pointer"
                 >
                   Yes, Terminate Everything
                 </button>

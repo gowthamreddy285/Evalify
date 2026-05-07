@@ -27,7 +27,7 @@ export default function DifficultyPicker({ onStart }) {
                   </motion.div>
                 )}
                 <p className="text-xl font-black mb-1 uppercase tracking-tighter" style={{ color: d.color }}>{d.label}</p>
-                <p className="text-[10px] text-[#707070] mb-4 font-mono font-bold tracking-widest">{d.questions} QUESTIONS</p>
+
                 <p className="text-xs text-[#707070] leading-relaxed mb-6 font-medium">{d.description}</p>
                 {/* Intensity dots */}
                 <div className="flex gap-2">

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request
+# Force reload to apply DB fix
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -145,9 +146,15 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 # ───────────────────────────────────────────
 @app.post("/signup", response_model=Token)
 async def signup(user_data: UserCreate):
-    existing = await User.find_one(User.email == user_data.email)
-    if existing:
+    # Check email
+    existing_email = await User.find_one(User.email == user_data.email)
+    if existing_email:
         raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Check username (name)
+    existing_name = await User.find_one(User.name == user_data.name)
+    if existing_name:
+        raise HTTPException(status_code=400, detail="Username already taken")
 
     hashed_pwd = get_password_hash(user_data.password)
     new_user = User(
@@ -203,8 +210,36 @@ async def get_me(user: User = Depends(get_current_user)):
         "id": str(user.id),
         "name": user.name,
         "email": user.email,
+        "resume_data": user.resume_data,
         "created_at": user.created_at,
     }
+
+@app.post("/save-resume")
+async def save_resume(resume_data: dict, user: User = Depends(get_current_user)):
+    """Saves parsed resume data to user profile for future use."""
+    user.resume_data = resume_data
+    await user.save()
+    return {"message": "Resume data archived in profile"}
+
+class UpdateProfileRequest(BaseModel):
+    name: str
+
+@app.post("/update-profile")
+async def update_profile(req: UpdateProfileRequest, user: User = Depends(get_current_user)):
+    """
+    Updates basic user profile info with uniqueness check.
+    """
+    if len(req.name.strip()) < 2:
+        raise HTTPException(status_code=400, detail="Name must be at least 2 characters")
+
+    if req.name != user.name:
+        existing = await User.find_one(User.name == req.name)
+        if existing:
+            raise HTTPException(status_code=400, detail="Username already taken by another operative")
+    
+    user.name = req.name
+    await user.save()
+    return {"message": "Profile updated successfully", "name": user.name}
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
@@ -213,13 +248,13 @@ class ChangePasswordRequest(BaseModel):
 @app.post("/change-password")
 async def change_password(req: ChangePasswordRequest, user: User = Depends(get_current_user)):
     """Securely change password by verifying current one first."""
-    if not verify_password(req.current_password, user.password_hash):
+    if not verify_password(req.current_password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Current password incorrect")
     
     if len(req.new_password) < 8:
         raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
     
-    user.password_hash = hash_password(req.new_password)
+    user.hashed_password = get_password_hash(req.new_password)
     await user.save()
     return {"message": "Password updated successfully"}
 
@@ -550,7 +585,7 @@ async def evaluate_text_endpoint(
 
     try:
         semantic_res = await asyncio.to_thread(evaluate_answer_correctness, question, answer)
-        nlp_res = await asyncio.to_thread(evaluate_communication_quality, answer)
+        nlp_res = await asyncio.to_thread(evaluate_communication_quality, answer, question)
 
         result = await asyncio.to_thread(
             evaluate_full_answer,
@@ -585,7 +620,7 @@ async def evaluate_audio_endpoint(
         text_answer = audio_res["transcription"]
 
         semantic_res = await asyncio.to_thread(evaluate_answer_correctness, question, text_answer)
-        nlp_res = await asyncio.to_thread(evaluate_communication_quality, text_answer)
+        nlp_res = await asyncio.to_thread(evaluate_communication_quality, text_answer, question)
 
         result = await asyncio.to_thread(
             evaluate_full_answer,

@@ -78,7 +78,6 @@ export default function Results() {
                   clarity: res.nlp_analysis?.clarity_score || 0,
                   professionalism: res.nlp_analysis?.professionalism_score || 0,
                   length: res.nlp_analysis?.length_score || 0,
-                  delivery: res.scores?.breakdown?.delivery || 0,
                   final: res.scores?.final_score || 0,
                 },
                 feedback: {
@@ -149,7 +148,7 @@ export default function Results() {
                </div>
             </div>
             <h2 className="text-2xl font-black text-[#F5F5F5] mb-4 tracking-[-0.03em] uppercase">Generating Report</h2>
-            <p className="text-[#707070] text-sm mb-8 leading-relaxed font-medium">Analyzing your responses, technical depth, and delivery quality with precision...</p>
+            <p className="text-[#707070] text-sm mb-8 leading-relaxed font-medium">Analyzing your responses, technical depth, and communication skills with precision...</p>
             <div className="space-y-4">
               {questions.map((q, i) => (
                 <div key={i} className="flex items-center gap-4 bg-[#030303] p-3 rounded-xl border border-white/5">
@@ -176,7 +175,12 @@ export default function Results() {
 
   // Aggregate breakdown scores
   const breakdownKeys = new Set();
-  results.forEach(r => Object.keys(r?.scores?.breakdown || {}).forEach(k => breakdownKeys.add(k)));
+  results.forEach(r => {
+    const breakdown = r?.scores?.breakdown || {};
+    Object.keys(breakdown).forEach(k => {
+      if (k.toLowerCase() !== 'delivery') breakdownKeys.add(k);
+    });
+  });
   const avgBreakdown = {};
   breakdownKeys.forEach(key => {
     const vals = results.map(r => r?.scores?.breakdown?.[key]).filter(v => v != null);
@@ -296,115 +300,16 @@ export default function Results() {
             </div>
           </motion.div>
         )}
-
-        {/* Actions */}
+         {/* Actions */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="flex flex-wrap gap-5 justify-center no-print"
+          className="flex flex-wrap gap-5 justify-center"
         >
           <button onClick={() => { dispatch({type:'RESET_SESSION'}); navigate('/interview/session'); }} className="px-8 py-4 rounded-xl border border-white/10 text-[#707070] hover:text-[#F5F5F5] hover:bg-white/5 font-bold uppercase tracking-widest text-xs transition-all cursor-pointer">Re-attempt Session</button>
           <button onClick={() => { dispatch({type:'RESET_ALL'}); navigate('/interview/setup'); }} className="px-8 py-4 rounded-xl border border-white/10 text-[#707070] hover:text-[#F5F5F5] hover:bg-white/5 font-bold uppercase tracking-widest text-xs transition-all cursor-pointer">New Configuration</button>
-          <button onClick={() => { window.print(); }} className="px-8 py-4 bg-[#D4121B] hover:bg-[#FF3B3B] text-white font-bold uppercase tracking-widest text-xs rounded-xl btn-shine cursor-pointer transition-all flex items-center gap-3 shadow-xl shadow-[#D4121B]/20">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-            Export Report
-          </button>
         </motion.div>
-
-        {/* PRINT ONLY REPORT CONTENT */}
-        <div className="print-only pt-10 px-4">
-          <div className="border-b-4 border-black pb-8 mb-12 flex justify-between items-end">
-            <div>
-              <h1 className="text-5xl font-black text-black tracking-tighter uppercase mb-2">Performance Report</h1>
-              <p className="text-xs font-bold text-gray-400 tracking-[0.2em] uppercase">Advanced AI Evaluation Matrix</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs font-bold text-gray-300 uppercase mb-1">Generated</p>
-              <p className="text-sm font-black text-black">{new Date().toLocaleDateString()}</p>
-            </div>
-          </div>
-
-          <div className="bg-black p-12 mb-16 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.4em] font-black text-[#D4121B] mb-4">Final Assessment</p>
-              <h2 className="text-5xl font-black text-white uppercase tracking-tight">Performance Index</h2>
-            </div>
-            <div className="text-center">
-              <p className="text-[6.5rem] leading-none font-black text-[#D4121B] tracking-tighter">{avgFinal}%</p>
-            </div>
-          </div>
-
-          <div className="space-y-20">
-            {results.map((r, i) => (
-              <div key={i} className="page-break-inside-avoid relative pl-16 border-l-2 border-gray-100">
-                <div className="absolute left-[-16px] top-0 w-8 h-8 bg-black text-white flex items-center justify-center text-[12px] font-black">
-                  {i+1}
-                </div>
-                
-                <h3 className="text-2xl font-black mb-10 text-black uppercase tracking-tight leading-tight">
-                  {questions[i]?.question}
-                </h3>
-
-                <div className="space-y-10">
-                   <div className="relative">
-                     <p className="text-[10px] uppercase tracking-widest text-gray-400 font-black mb-4 italic">Candidate Response</p>
-                     <p className="text-[14px] text-gray-900 bg-gray-50 p-8 border-l-8 border-black italic leading-relaxed font-medium">
-                       "{r.candidate_answer}"
-                     </p>
-                   </div>
-
-                   <div className="relative">
-                     <p className="text-[10px] uppercase tracking-widest text-[#D4121B] font-black mb-4 italic">Evaluation Logic</p>
-                     <p className="text-[14px] text-gray-900 bg-[#D4121B]/5 p-8 border-l-8 border-[#D4121B] leading-relaxed font-medium">
-                       {r.reference_answer}
-                     </p>
-                   </div>
-
-                   <div className="grid grid-cols-1 gap-8">
-                     <div className="grid grid-cols-3 gap-8">
-                        <div className="border border-gray-100 p-6">
-                          <p className="text-[10px] font-black text-[#D4121B] mb-5 uppercase tracking-widest">Strengths</p>
-                          <ul className="space-y-3">{r.feedback?.strengths?.map((s,j) => <li key={j} className="text-[12px] text-gray-700 font-bold flex gap-2"><span>•</span> {s}</li>)}</ul>
-                        </div>
-                        <div className="border border-gray-100 p-6">
-                          <p className="text-[10px] font-black text-gray-400 mb-5 uppercase tracking-widest">Gaps</p>
-                          <ul className="space-y-3">{r.feedback?.weaknesses?.map((w,j) => <li key={j} className="text-[12px] text-gray-700 font-bold flex gap-2"><span>•</span> {w}</li>)}</ul>
-                        </div>
-                        <div className="border border-gray-100 p-6">
-                          <p className="text-[10px] font-black text-gray-800 mb-5 uppercase tracking-widest">Actions</p>
-                          <ul className="space-y-3">{r.feedback?.improvement_tips?.map((t,j) => <li key={j} className="text-[12px] text-gray-700 font-bold flex gap-2"><span>•</span> {t}</li>)}</ul>
-                        </div>
-                     </div>
-
-                     {r.nlp_analysis && (
-                       <div className="bg-black p-8 flex justify-between items-center">
-                          <div className="flex gap-12">
-                            <div>
-                              <p className="text-[9px] font-black text-[#707070] uppercase tracking-widest mb-2">Grammar</p>
-                              <p className="text-2xl font-black text-white">{r.nlp_analysis.grammar_score}%</p>
-                            </div>
-                            <div>
-                              <p className="text-[9px] font-black text-[#707070] uppercase tracking-widest mb-2">Clarity</p>
-                              <p className="text-2xl font-black text-white">{r.nlp_analysis.clarity_score}%</p>
-                            </div>
-                            <div>
-                              <p className="text-[9px] font-black text-[#707070] uppercase tracking-widest mb-2">Prof.</p>
-                              <p className="text-2xl font-black text-white">{r.nlp_analysis.professionalism_score}%</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                             <p className="text-[9px] font-black text-[#D4121B] uppercase tracking-widest mb-2">Q-Index</p>
-                             <p className="text-3xl font-black text-white">{r.scores.final_score}%</p>
-                          </div>
-                       </div>
-                     )}
-                   </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

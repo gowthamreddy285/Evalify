@@ -1,31 +1,39 @@
 import asyncio
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
+from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 
-load_dotenv()
-
-async def check_db():
-    uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-    db_name = os.getenv("MONGODB_DB_NAME", "evalify")
-    
-    print(f"--- Connecting to {uri} ---")
+async def check_user():
+    load_dotenv()
+    uri = os.getenv("MONGODB_URL", "mongodb://localhost:27017/evalify")
     client = AsyncIOMotorClient(uri)
-    db = client[db_name]
+    db = client.get_default_database()
     
-    collections = await db.list_collection_names()
-    print(f"Collections found: {collections}")
+    email = "gowthamreddy1013@gmail.com"
+    name = "gowtham1"
     
-    for coll_name in collections:
-        count = await db[coll_name].count_documents({})
-        print(f"\nCollection: {coll_name} ({count} documents)")
+    print(f"--- RAW DATABASE DIAGNOSTICS ---")
+    print(f"Connecting to: {uri.split('@')[-1] if '@' in uri else uri}")
+    
+    # Check by email
+    user_by_email = await db.users.find_one({"email": email})
+    if user_by_email:
+        print(f"EMAIL [{email}]: FOUND")
+        print(f"  - User ID: {user_by_email['_id']}")
+        print(f"  - Name: {user_by_email['name']}")
+        print(f"  - Provider: {'Google' if user_by_email.get('hashed_password') == '---' else 'Manual'}")
+    else:
+        print(f"EMAIL [{email}]: NOT FOUND")
         
-        # Show last 3 items
-        cursor = db[coll_name].find().sort("_id", -1).limit(3)
-        async for doc in cursor:
-            # Clean up ID for printing
-            doc['_id'] = str(doc['_id'])
-            print(f"  - {doc}")
+    # Check by name
+    user_by_name = await db.users.find_one({"name": name})
+    if user_by_name:
+        print(f"\nUSERNAME [{name}]: FOUND")
+        print(f"  - User ID: {user_by_name['_id']}")
+        print(f"  - Email: {user_by_name['email']}")
+    else:
+        print(f"\nUSERNAME [{name}]: NOT FOUND")
+    print(f"--------------------------------")
 
 if __name__ == "__main__":
-    asyncio.run(check_db())
+    asyncio.run(check_user())

@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-const API = axios.create({
+export const API = axios.create({
   baseURL: API_BASE_URL,
   timeout: 60000,
 });
@@ -142,7 +142,17 @@ export async function changePassword({ current_password, new_password }) {
   return data;
 }
 
-export async function deleteAccount() {
-  const { data } = await API.delete('/delete-account');
+export async function updateProfile(payload) {
+  const { data } = await API.post('/update-profile', payload);
   return data;
 }
+
+export const deleteAccount = async () => {
+  const response = await API.delete('/delete-account');
+  return response.data;
+};
+
+export const saveResume = async (resumeData) => {
+  const response = await API.post('/save-resume', resumeData);
+  return response.data;
+};

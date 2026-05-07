@@ -11,8 +11,15 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 # Validation will happen inside functions that require the key.
 
 
-# Load once at startup
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+# Lazy load to avoid blocking server startup
+_embedding_model = None
+
+def get_embedding_model():
+    global _embedding_model
+    if _embedding_model is None:
+        print("Loading SentenceTransformer model (all-MiniLM-L6-v2)...")
+        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    return _embedding_model
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -43,8 +50,9 @@ Cover all key concepts a strong candidate should mention.
 # STEP 2 — Semantic Similarity (sentence-transformers)
 # ─────────────────────────────────────────────────────────────────
 def compute_similarity(text1: str, text2: str) -> float:
-    emb1 = embedding_model.encode([text1])
-    emb2 = embedding_model.encode([text2])
+    model = get_embedding_model()
+    emb1 = model.encode([text1])
+    emb2 = model.encode([text2])
     return float(cosine_similarity(emb1, emb2)[0][0])
 
 
@@ -69,11 +77,14 @@ Score the candidate's answer from 0 to 100 based on:
 - Completeness (does it cover key concepts?)
 - Relevance (does it actually answer the question?)
 
+CRITICAL RULE:
+If the candidate's answer is a restatement of the question, a circular response, or lacks any actual technical substance (e.g., just echoing keywords without explanation), you MUST award a score of 0. Parroting the question is an automatic failure.
+
 Scoring guide:
-- Wrong answer         → 0 to 25
-- Partially correct    → 30 to 60
-- Mostly correct       → 65 to 79
-- Complete and correct → 80 to 100
+- Wrong/Parroted answer → 0
+- Partially correct     → 10 to 50
+- Mostly correct        → 55 to 79
+- Complete and correct  → 80 to 100
 
 Return ONLY valid JSON:
 {{
@@ -91,11 +102,11 @@ Return ONLY valid JSON:
 
     try:
         parsed = json.loads(text)
-        score = float(parsed.get("score", 50))
+        score = float(parsed.get("score", 0))
         reason = parsed.get("reason", "")
         return max(0.0, min(100.0, score)), reason
     except json.JSONDecodeError:
-        return 50.0, "Could not parse AI judge response."
+        return 0.0, "Could not parse AI judge response."
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -169,23 +180,29 @@ Return ONLY valid JSON:
         return {"overall_assessment": text}
 
 
-def is_answer_irrelevant(answer: str) -> bool:
+def is_answer_invalid(question: str, answer: str) -> bool:
     """
-    Checks if the answer is a refusal, skip, or too short to be meaningful.
+    Checks if the answer is a refusal, skip, circular (parroting), or too short.
     """
-    clean_ans = answer.strip().lower()
+    q_clean = re.sub(r'[^\w\s]', '', question.lower()).strip()
+    a_clean = re.sub(r'[^\w\s]', '', answer.lower()).strip()
     
-    # 1. Direct refusal/skip phrases
+    # 1. Circular / Parrot Detection (Answer matches question)
+    if a_clean == q_clean or a_clean in q_clean or q_clean in a_clean:
+        if len(a_clean) > 0:
+            return True
+
+    # 2. Direct refusal/skip phrases
     refusals = {
-        "i don't know", "dont know", "no idea", "not sure", 
-        "skip", "none", "nothing", "na", "n/a", ".", "?", "irrelevant",
-        "i do not know", "no clue", "pass", "idk"
+        "i dont know", "dont know", "no idea", "not sure", 
+        "skip", "none", "nothing", "na", "n/a", "irrelevant",
+        "i do not know", "no clue", "pass", "idk", "repeating question"
     }
-    if clean_ans in refusals:
+    if a_clean in refusals:
         return True
     
-    # 2. Too short to contain a technical concept (e.g. "ok", "yes", "the")
-    if len(clean_ans) < 6:
+    # 3. Too short to contain a technical concept
+    if len(a_clean) < 6:
         return True
         
     return False
@@ -200,13 +217,13 @@ def evaluate_answer_correctness(question: str, candidate_answer: str, context: d
       + Semantic Similarity × 0.3
       + Keyword Coverage    × 0.2
     """
-    # STRICTURE: If answer is a refusal or nonsense, give zero immediately
-    if is_answer_irrelevant(candidate_answer):
+    # STRICTURE: If answer is a refusal, circular/parrot, or nonsense, give zero immediately
+    if is_answer_invalid(question, candidate_answer):
         return {
             "correctness_score": 0.0,
             "score_breakdown": {
                 "ai_judge_score": 0.0,
-                "ai_judge_reason": "Candidate provided a skip, refusal, or irrelevant one-word answer.",
+                "ai_judge_reason": "Candidate provided a circular response (parroting the question), a skip, or an irrelevant answer.",
                 "similarity_score": 0.0,
                 "keyword_coverage_score": 0.0,
                 "weights": "N/A"

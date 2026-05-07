@@ -36,14 +36,16 @@ export default function SessionDetail() {
   return (
     <div className="min-h-screen py-24 px-6 bg-[#030303]">
       <div className="max-w-6xl mx-auto">
-        <motion.button 
-          initial={{ opacity: 0, x: -10 }}
-          animate={{ opacity: 1, x: 0 }}
-          onClick={() => navigate('/dashboard')}
-          className="mb-12 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-[#707070] hover:text-[#D4121B] transition-all"
-        >
-          <span>←</span> Back to Dashboard
-        </motion.button>
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
+          <motion.button 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-[#707070] hover:text-[#D4121B] transition-all"
+          >
+            <span>←</span> Back to Dashboard
+          </motion.button>
+        </div>
 
         <div className="grid lg:grid-cols-3 gap-12 mb-20">
           <motion.div 
@@ -58,7 +60,7 @@ export default function SessionDetail() {
               {session.jd_data?.job_role || 'General Interview'}
             </h1>
             <p className="text-[#707070] font-medium tracking-tight mb-8">
-              Conducted on {new Date(session.created_at).toLocaleDateString()} at {new Date(session.created_at).toLocaleTimeString()}
+              Conducted on {new Date(session.created_at).toLocaleDateString()}
             </p>
             
             <div className="flex gap-4">
@@ -93,7 +95,6 @@ export default function SessionDetail() {
             <div className="flex-1 h-[1px] bg-white/5" />
           </div>
           
-          {/* Reuse the results accordion but mapping correctly */}
           <FeedbackAccordion 
             results={session.questions.map(q => q.answer).filter(a => a !== null)} 
             questions={session.questions} 
@@ -103,3 +104,4 @@ export default function SessionDetail() {
     </div>
   );
 }
+

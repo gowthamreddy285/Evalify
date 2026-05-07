@@ -11,7 +11,7 @@ const features = [
   { title: 'AI-Powered Questions', desc: 'Questions personalized to your resume and target role — not generic templates.', icon: '🧠', color: '#D4121B' },
   { title: '3-Layer Scoring', desc: 'AI judge + semantic analysis + keyword matching for comprehensive evaluation.', icon: '📊', color: '#E61A23' },
   { title: 'Grammar Analysis', desc: 'Real-time language feedback to polish your communication skills.', icon: '✍️', color: '#D4121B' },
-  { title: 'Audio Support', desc: 'Speak your answers aloud and get evaluated on delivery and clarity.', icon: '🎙️', color: '#E61A23' },
+  { title: 'Audio Support', desc: 'Speak your answers aloud and get evaluated on tone and clarity.', icon: '🎙️', color: '#E61A23' },
 ];
 
 const steps = [
@@ -187,8 +187,8 @@ export default function Landing() {
       {/* ═══ FOOTER ═══ */}
       <footer className="border-t border-[#1A1A1A] py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm font-bold text-[#F0F0FF] tracking-[-0.01em]">Evalify</p>
-          <p className="text-xs text-[#8B8BA0]">Built with Groq + React</p>
+          <p className="text-sm font-bold text-[#D4121B] tracking-[-0.01em]">Evalify</p>
+          <p className="text-xs text-[#707070]">Built with Groq + React</p>
         </div>
       </footer>
     </div>

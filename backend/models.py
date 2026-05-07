@@ -38,9 +38,10 @@ class SessionStatus(str, Enum):
 # DOCUMENT MODELS (MongoDB collections)
 # ───────────────────────────────────────────
 class User(Document):
-    name: str
+    name: Indexed(str, unique=True)
     email: Indexed(EmailStr, unique=True)
     hashed_password: str
+    resume_data: Optional[Dict[str, Any]] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     class Settings:

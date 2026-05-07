@@ -1,17 +1,26 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { parseResume } from '../utils/api';
+import { parseResume, saveResume } from '../utils/api';
 import { useInterview } from '../context/InterviewContext';
+import { useAuth } from '../context/AuthContext';
 import SkillBadge from './SkillBadge';
 import { SkeletonCard } from './Skeleton';
 
 export default function ResumeUpload({ onComplete }) {
   const { dispatch, addToast } = useInterview();
+  const { user, refreshUser } = useAuth();
   const [file, setFile] = useState(null);
   const [parsing, setParsing] = useState(false);
   const [parsed, setParsed] = useState(null);
   const [error, setError] = useState(null);
+  const [showSaved, setShowSaved] = useState(!!user?.resume_data);
+
+  useEffect(() => {
+    if (user?.resume_data && !parsed) {
+      setShowSaved(true);
+    }
+  }, [user]);
 
   const onDrop = useCallback((accepted, rejected) => {
     if (rejected.length > 0) {
@@ -22,6 +31,7 @@ export default function ResumeUpload({ onComplete }) {
       setFile(accepted[0]);
       setParsed(null);
       setError(null);
+      setShowSaved(false);
     }
   }, [addToast]);
 
@@ -32,6 +42,15 @@ export default function ResumeUpload({ onComplete }) {
     multiple: false,
   });
 
+  const handleUseSaved = () => {
+    if (user?.resume_data) {
+      setParsed(user.resume_data);
+      dispatch({ type: 'SET_RESUME_DATA', payload: user.resume_data });
+      setShowSaved(false);
+      addToast('Resumed with saved profile', 'success');
+    }
+  };
+
   const handleParse = async () => {
     if (!file) return;
     setParsing(true);
@@ -40,7 +59,16 @@ export default function ResumeUpload({ onComplete }) {
       const data = await parseResume(file);
       setParsed(data);
       dispatch({ type: 'SET_RESUME_DATA', payload: data });
-      addToast('Resume parsed successfully!', 'success');
+      
+      // Auto-save to user profile
+      try {
+        await saveResume(data);
+        refreshUser(); // Update context with new resume data
+      } catch (saveErr) {
+        console.error("Auto-save failed", saveErr);
+      }
+
+      addToast('Resume parsed and saved to profile!', 'success');
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to parse resume.');
       addToast('Resume parsing failed', 'error');
@@ -53,6 +81,7 @@ export default function ResumeUpload({ onComplete }) {
     setFile(null);
     setParsed(null);
     setError(null);
+    setShowSaved(!!user?.resume_data);
     dispatch({ type: 'SET_RESUME_DATA', payload: null });
   };
 
@@ -110,6 +139,40 @@ export default function ResumeUpload({ onComplete }) {
 
   return (
     <div className="max-w-2xl mx-auto">
+      <AnimatePresence>
+        {showSaved && user?.resume_data && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-8 p-8 bg-[#D4121B]/5 border border-[#D4121B]/10 rounded-[24px] overflow-hidden"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-[#D4121B] animate-pulse" />
+                <p className="text-[10px] font-black text-[#D4121B] uppercase tracking-[0.3em]">Vault Profile Detected</p>
+              </div>
+              <button 
+                onClick={() => setShowSaved(false)}
+                className="text-[10px] font-black text-[#707070] hover:text-[#F5F5F5] uppercase tracking-widest transition-colors"
+              >
+                Ignore
+              </button>
+            </div>
+            <h3 className="text-xl font-black text-[#F5F5F5] uppercase tracking-tight mb-2">{user.resume_data.name}</h3>
+            <p className="text-xs text-[#707070] font-medium mb-6 line-clamp-1">
+              Skills: {user.resume_data.skills?.join(', ')}
+            </p>
+            <button 
+              onClick={handleUseSaved}
+              className="w-full py-3 bg-[#D4121B] hover:bg-[#FF3B3B] text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-[#D4121B]/20"
+            >
+              Continue with Saved Profile
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div {...getRootProps()} id="resume-dropzone" className={`border-2 border-dashed rounded-[24px] p-16 text-center cursor-pointer transition-all duration-500 ${isDragActive ? 'border-[#D4121B] bg-[#D4121B]/5 shadow-[0_0_30px_rgba(212,18,27,0.1)]' : file ? 'border-[#D4121B]/40 bg-[#D4121B]/5' : 'border-white/5 bg-[#0A0A0A] hover:border-[#D4121B]/30'}`}>
         <input {...getInputProps()} />
         <div className={`mx-auto w-20 h-20 rounded-2xl flex items-center justify-center mb-8 transition-all ${isDragActive ? 'bg-[#D4121B]/20 scale-110' : 'bg-white/5'}`}>
