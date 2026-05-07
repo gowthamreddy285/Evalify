@@ -9,6 +9,10 @@ import motor.core
 if not hasattr(motor.core.AgnosticDatabase, "__call__") or motor.core.AgnosticDatabase.__call__ == object.__call__:
     motor.core.AgnosticDatabase.__call__ = lambda self, *args, **kwargs: self
 
+# Also add append_metadata to AgnosticClient if missing
+if not hasattr(motor.core.AgnosticClient, 'append_metadata'):
+    motor.core.AgnosticClient.append_metadata = lambda self, x: None
+
 async def init_db():
     """Initialize Beanie ODM with all document models. Call once at app startup."""
     from models import User, InterviewSession, Question, Answer
