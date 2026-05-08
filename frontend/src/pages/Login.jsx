@@ -27,7 +27,8 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const { data } = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/login`, { email, password });
+      const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const { data } = await axios.post(`${baseURL}/login`, { email, password });
       login(data.access_token);
       addToast('Welcome back!', 'success');
       navigate('/dashboard');
@@ -40,7 +41,8 @@ export default function Login() {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const { data } = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/google-login`, {
+      const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const { data } = await axios.post(`${baseURL}/google-login`, {
         credential: credentialResponse.credential,
       });
       login(data.access_token);
