@@ -43,7 +43,8 @@ export default function Signup() {
     
     setLoading(true);
     try {
-      const { data } = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/signup`, { name, email, password });
+      const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const { data } = await axios.post(`${baseURL}/signup`, { name, email, password });
       login(data.access_token);
       addToast('Account created successfully!', 'success');
       navigate('/dashboard');
@@ -56,7 +57,8 @@ export default function Signup() {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const { data } = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/google-login`, {
+      const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+      const { data } = await axios.post(`${baseURL}/google-login`, {
         credential: credentialResponse.credential,
       });
       login(data.access_token);
