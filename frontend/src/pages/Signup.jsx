@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import { API } from '../utils/api';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import { useInterview } from '../context/InterviewContext';
@@ -40,11 +40,10 @@ export default function Signup() {
     if (!agree) {
       return addToast('You must agree to the terms', 'error');
     }
-    
+
     setLoading(true);
     try {
-      const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-      const { data } = await axios.post(`${baseURL}/signup`, { name, email, password });
+      const { data } = await API.post('/signup', { name, email, password });
       login(data.access_token);
       addToast('Account created successfully!', 'success');
       navigate('/dashboard');
@@ -57,8 +56,7 @@ export default function Signup() {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-      const { data } = await axios.post(`${baseURL}/google-login`, {
+      const { data } = await API.post('/google-login', {
         credential: credentialResponse.credential,
       });
       login(data.access_token);
@@ -71,7 +69,7 @@ export default function Signup() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-[#030303]">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="max-w-md w-full bg-[#0A0A0A] border border-white/5 rounded-[32px] p-10 noise-overlay shadow-2xl relative overflow-hidden"
@@ -105,7 +103,7 @@ export default function Signup() {
                 required
               />
             </div>
-            
+
             <div className="space-y-4">
               <div className="relative">
                 <label className="block text-[10px] font-black text-[#707070] uppercase tracking-widest mb-2 ml-1">Password</label>
@@ -118,7 +116,7 @@ export default function Signup() {
                     placeholder="Min. 8 characters"
                     required
                   />
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-[#707070] hover:text-[#F5F5F5] transition-colors p-1"
@@ -143,7 +141,7 @@ export default function Signup() {
                     placeholder="Repeat password"
                     required
                   />
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-[#707070] hover:text-[#F5F5F5] transition-colors p-1"
@@ -159,8 +157,8 @@ export default function Signup() {
             </div>
 
             <div className="flex items-center space-x-3 py-2">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 id="terms"
                 checked={agree}
                 onChange={(e) => setAgree(e.target.checked)}
