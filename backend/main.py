@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Request
 # Force reload to apply DB fix
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -15,7 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database import init_db
-from auth_utils import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM
+from auth_utils import verify_password, get_password_hash, create_access_token, decode_access_token
 from models import User, InterviewSession, Question, Answer, SessionStatus, Scores, Feedback
 
 from modules.resume_parser import parse_resume
@@ -61,6 +62,8 @@ app.add_middleware(
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
 
 # ───────────────────────────────────────────
 # SCHEMAS (request/response models)
@@ -79,10 +82,6 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-
-
-class GoogleLoginRequest(BaseModel):
-    credential: str
 
 
 class AnalyzeJDRequest(BaseModel):
@@ -116,12 +115,14 @@ class CompleteSessionRequest(BaseModel):
     final_score: float
 
 
-from fastapi.security import OAuth2PasswordBearer
-from google.oauth2 import id_token
-from google.auth.transport import requests as google_requests
-from auth_utils import decode_access_token
+class UpdateProfileRequest(BaseModel):
+    name: str
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 
 # ───────────────────────────────────────────
 # AUTH DEPENDENCY
@@ -171,37 +172,11 @@ async def signup(user_data: UserCreate):
 @app.post("/login", response_model=Token)
 async def login(user_data: UserLogin):
     db_user = await User.find_one(User.email == user_data.email)
-    if not db_user or db_user.hashed_password == "---" or not verify_password(user_data.password, db_user.hashed_password):
+    if not db_user or not verify_password(user_data.password, db_user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
 
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
-
-
-@app.post("/google-login", response_model=Token)
-async def google_login(req: GoogleLoginRequest):
-    try:
-        # Verify the Google token
-        client_id = os.getenv("GOOGLE_CLIENT_ID")
-        idinfo = id_token.verify_oauth2_token(req.credential, google_requests.Request(), client_id)
-        
-        email = idinfo['email']
-        name = idinfo.get('name', 'Google User')
-        
-        user = await User.find_one(User.email == email)
-        if not user:
-            user = User(
-                name=name,
-                email=email,
-                hashed_password="---", # Password-less for Google users
-            )
-            await user.insert()
-            
-        access_token = create_access_token(data={"sub": user.email})
-        return {"access_token": access_token, "token_type": "bearer"}
-    except Exception as e:
-        print(f"Google login error: {e}")
-        raise HTTPException(status_code=400, detail="Invalid Google credentials")
 
 
 @app.get("/me")
@@ -214,36 +189,22 @@ async def get_me(user: User = Depends(get_current_user)):
         "created_at": user.created_at,
     }
 
-@app.post("/save-resume")
-async def save_resume(resume_data: dict, user: User = Depends(get_current_user)):
-    """Saves parsed resume data to user profile for future use."""
-    user.resume_data = resume_data
-    await user.save()
-    return {"message": "Resume data archived in profile"}
-
-class UpdateProfileRequest(BaseModel):
-    name: str
 
 @app.post("/update-profile")
 async def update_profile(req: UpdateProfileRequest, user: User = Depends(get_current_user)):
-    """
-    Updates basic user profile info with uniqueness check.
-    """
+    """Updates basic user profile info with uniqueness check."""
     if len(req.name.strip()) < 2:
         raise HTTPException(status_code=400, detail="Name must be at least 2 characters")
 
     if req.name != user.name:
         existing = await User.find_one(User.name == req.name)
         if existing:
-            raise HTTPException(status_code=400, detail="Username already taken by another operative")
+            raise HTTPException(status_code=400, detail="Username already taken")
     
     user.name = req.name
     await user.save()
     return {"message": "Profile updated successfully", "name": user.name}
 
-class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: str
 
 @app.post("/change-password")
 async def change_password(req: ChangePasswordRequest, user: User = Depends(get_current_user)):
@@ -258,30 +219,30 @@ async def change_password(req: ChangePasswordRequest, user: User = Depends(get_c
     await user.save()
     return {"message": "Password updated successfully"}
 
+
 @app.delete("/delete-account")
 async def delete_account(user: User = Depends(get_current_user)):
     """Permanently delete user and all associated data."""
     user_id_str = str(user.id)
     
-    # 1. Delete all answers
     await Answer.find(Answer.user_id == user_id_str).delete()
-    # 2. Delete all questions
     await Question.find(Question.user_id == user_id_str).delete()
-    # 3. Delete all sessions
     await InterviewSession.find(InterviewSession.user_id == user_id_str).delete()
-    # 4. Delete user profile
     await user.delete()
     
-    return {"message": "Account terminated successfully"}
+    return {"message": "Account deleted successfully"}
 
 
+@app.post("/save-resume")
+async def save_resume(resume_data: dict, user: User = Depends(get_current_user)):
+    """Saves parsed resume data to user profile for future use."""
+    user.resume_data = resume_data
+    await user.save()
+    return {"message": "Resume data saved to profile"}
 
 
 # ───────────────────────────────────────────
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
-# SESSION MANAGEMENT (NEW)
+# SESSION MANAGEMENT
 # ───────────────────────────────────────────
 @app.post("/start-session")
 async def start_session(req: StartSessionRequest, user: User = Depends(get_current_user)):
@@ -290,7 +251,6 @@ async def start_session(req: StartSessionRequest, user: User = Depends(get_curre
     saves everything to MongoDB, and returns session_id + questions.
     """
     try:
-        # 1. Generate questions via LLM (wrapped in thread to avoid blocking)
         questions = await asyncio.to_thread(
             generate_questions,
             resume_data=req.resume_data,
@@ -298,7 +258,6 @@ async def start_session(req: StartSessionRequest, user: User = Depends(get_curre
             difficulty=req.difficulty,
         )
 
-        # 2. Create session document
         session = InterviewSession(
             user_id=str(user.id),
             resume_data=req.resume_data,
@@ -310,7 +269,6 @@ async def start_session(req: StartSessionRequest, user: User = Depends(get_curre
         )
         await session.insert()
 
-        # 3. Save each question to DB
         saved_questions = []
         for i, q in enumerate(questions):
             q_text = q.get("question", q) if isinstance(q, dict) else str(q)
@@ -345,11 +303,7 @@ async def start_session(req: StartSessionRequest, user: User = Depends(get_curre
 
 @app.post("/save-answer")
 async def save_answer(req: SaveAnswerRequest, user: User = Depends(get_current_user)):
-    """
-    Saves a single evaluated answer to the answers collection.
-    Called from the Results page after each answer is evaluated.
-    """
-    # Map scores dict to Scores model
+    """Saves a single evaluated answer to the answers collection."""
     scores_obj = Scores(
         correctness=req.scores.get("correctness", 0),
         ai_judge=req.scores.get("ai_judge", 0),
@@ -364,7 +318,6 @@ async def save_answer(req: SaveAnswerRequest, user: User = Depends(get_current_u
         final=req.scores.get("final", req.scores.get("final_score", 0)),
     )
 
-    # Map feedback dict to Feedback model
     feedback_obj = Feedback(
         strengths=req.feedback.get("strengths", []),
         weaknesses=req.feedback.get("weaknesses", []),
@@ -388,9 +341,7 @@ async def save_answer(req: SaveAnswerRequest, user: User = Depends(get_current_u
 
 @app.post("/complete-session/{session_id}")
 async def complete_session(session_id: str, req: CompleteSessionRequest, user: User = Depends(get_current_user)):
-    """
-    Marks a session as completed and stores the final score.
-    """
+    """Marks a session as completed and stores the final score."""
     session = await InterviewSession.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -404,16 +355,13 @@ async def complete_session(session_id: str, req: CompleteSessionRequest, user: U
 
 @app.get("/sessions")
 async def get_sessions(user: User = Depends(get_current_user)):
-    """
-    Returns all sessions for the current user.
-    """
+    """Returns all sessions for the current user."""
     sessions = await InterviewSession.find(
         InterviewSession.user_id == str(user.id)
     ).sort(-InterviewSession.created_at).to_list()
 
     result = []
     for s in sessions:
-        # Fallback for job role if jd_data is missing
         job_role = s.jd_data.get("job_role") if s.jd_data else None
         if not job_role:
             job_role = "General Interview"
@@ -434,9 +382,7 @@ async def get_sessions(user: User = Depends(get_current_user)):
 
 @app.get("/sessions/{session_id}")
 async def get_session_detail(session_id: str, user: User = Depends(get_current_user)):
-    """
-    Returns full session details including questions and answers.
-    """
+    """Returns full session details including questions and answers."""
     session = await InterviewSession.get(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -449,7 +395,6 @@ async def get_session_detail(session_id: str, user: User = Depends(get_current_u
         Answer.session_id == session_id
     ).to_list()
 
-    # Map answers by question_id for easy lookup
     answers_map = {a.question_id: a for a in answers}
 
     questions_with_answers = []
@@ -486,7 +431,7 @@ async def get_session_detail(session_id: str, user: User = Depends(get_current_u
 
 
 # ───────────────────────────────────────────
-# BACKWARD COMPAT: /history & /save-result
+# BACKWARD COMPAT: /history
 # ───────────────────────────────────────────
 @app.get("/history")
 async def get_history(user: User = Depends(get_current_user)):
@@ -555,7 +500,6 @@ async def generate_questions_endpoint(req: GenerateQuestionsRequest):
     """
     Uses resume + JD data + difficulty to generate
     personalized interview questions via LLM.
-    Standalone — use /start-session for full DB integration.
     """
     try:
         questions = await asyncio.to_thread(
@@ -668,6 +612,8 @@ async def transcribe_endpoint(file: UploadFile = File(...)):
 @app.get("/health")
 async def health():
     return {"status": "ok", "database": "mongodb"}
-# touch
 
-# reload
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
       const storedToken = localStorage.getItem('evalify_token');
       if (storedToken) {
         try {
-          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
+          const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
           const { data } = await axios.get(`${baseUrl}/me`, {
             headers: { Authorization: `Bearer ${storedToken}` }
           });
@@ -38,7 +38,6 @@ export function AuthProvider({ children }) {
   const login = (newToken) => {
     localStorage.setItem('evalify_token', newToken);
     setToken(newToken);
-    // Trigger a refresh of user data after login
     refreshUser();
   };
 
@@ -53,7 +52,7 @@ export function AuthProvider({ children }) {
     if (!storedToken) return;
     
     try {
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
       const { data } = await axios.get(`${baseUrl}/me`, {
         headers: { Authorization: `Bearer ${storedToken}` }
       });
