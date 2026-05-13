@@ -39,9 +39,13 @@ export default function Login() {
       login(data.access_token);
       navigate('/dashboard');
     } catch (err) {
+ parse-fix
+      addToast(err.response?.data?.detail || 'Google login failed', 'error');
+
       setError(err.response?.data?.detail || 'Google Login failed. Please try again.');
     } finally {
       setLoading(false);
+ main
     }
   };
 

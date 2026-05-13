@@ -186,6 +186,17 @@ async def login(user_data: UserLogin):
 @app.post("/auth/google", response_model=Token)
 async def google_auth(req: GoogleAuthRequest):
     try:
+parse-fix
+        # Verify the Google token
+        client_id = os.getenv("GOOGLE_CLIENT_ID")
+        idinfo = id_token.verify_oauth2_token(req.credential, google_requests.Request(), client_id)
+        
+        email = idinfo['email']
+        name = idinfo.get('name', 'Google User')
+        
+        user = await User.find_one(User.email == email)
+        if not user:
+
         # Verify the token
         idinfo = id_token.verify_oauth2_token(
             req.token, 
@@ -204,14 +215,19 @@ async def google_auth(req: GoogleAuthRequest):
         db_user = await User.find_one(User.email == email)
         if not db_user:
             # Check name uniqueness
+ main
             existing_name = await User.find_one(User.name == name)
             if existing_name:
                 import uuid
                 name = f"{name}_{str(uuid.uuid4())[:6]}"
+ parse-fix
+            user = User(
+
 
             # Create user
             dummy_pwd = get_password_hash("google_auth_placeholder")
             db_user = User(
+ main
                 name=name,
                 email=email,
                 hashed_password=dummy_pwd,
@@ -220,6 +236,15 @@ async def google_auth(req: GoogleAuthRequest):
 
         access_token = create_access_token(data={"sub": db_user.email})
         return {"access_token": access_token, "token_type": "bearer"}
+ parse-fix
+    except ValueError as e:
+        print(f"Google token ValueError: {e}")
+        raise HTTPException(status_code=400, detail=f"Token Error: {str(e)}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=f"Login Error: {str(e)}")
+
 
     except ValueError as e:
         # Invalid token
@@ -228,6 +253,7 @@ async def google_auth(req: GoogleAuthRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+ main
 
 
 @app.get("/me")
@@ -293,7 +319,14 @@ async def save_resume(resume_data: dict, user: User = Depends(get_current_user))
 
 
 # ───────────────────────────────────────────
+ parse-fix
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+# SESSION MANAGEMENT (NEW)
+=======
 # SESSION MANAGEMENT
+main
 # ───────────────────────────────────────────
 @app.post("/start-session")
 async def start_session(req: StartSessionRequest, user: User = Depends(get_current_user)):
