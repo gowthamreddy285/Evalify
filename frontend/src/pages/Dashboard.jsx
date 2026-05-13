@@ -62,7 +62,7 @@ export default function Dashboard() {
             <div className="inline-block px-4 py-1.5 rounded-full bg-[#D4121B]/10 border border-[#D4121B]/20 mb-6">
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#D4121B]">Personal Dashboard</span>
             </div>
-            <h1 className="text-5xl font-black text-[#F5F5F5] uppercase tracking-tighter">Welcome, {user?.name?.split(' ')[0]}.</h1>
+            <h1 className="text-5xl font-black text-[#F5F5F5] uppercase tracking-tighter">Welcome, {user?.name?.split(' ')[0] || 'Operative'}.</h1>
           </div>
           
           <div className="flex gap-4">
