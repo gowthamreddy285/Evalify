@@ -63,7 +63,7 @@ export default function Signup() {
       addToast('Welcome to Evalify!', 'success');
       navigate('/dashboard');
     } catch (err) {
-      addToast('Google login failed', 'error');
+      addToast(err.response?.data?.detail || 'Google login failed', 'error');
     }
   };
 

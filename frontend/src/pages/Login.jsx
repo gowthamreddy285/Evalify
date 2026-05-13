@@ -47,7 +47,7 @@ export default function Login() {
       addToast('Welcome back!', 'success');
       navigate('/dashboard');
     } catch (err) {
-      addToast('Google login failed', 'error');
+      addToast(err.response?.data?.detail || 'Google login failed', 'error');
     }
   };
 

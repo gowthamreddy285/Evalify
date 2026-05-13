@@ -190,6 +190,10 @@ async def google_login(req: GoogleLoginRequest):
         
         user = await User.find_one(User.email == email)
         if not user:
+            existing_name = await User.find_one(User.name == name)
+            if existing_name:
+                import uuid
+                name = f"{name}_{str(uuid.uuid4())[:6]}"
             user = User(
                 name=name,
                 email=email,
@@ -199,9 +203,13 @@ async def google_login(req: GoogleLoginRequest):
             
         access_token = create_access_token(data={"sub": user.email})
         return {"access_token": access_token, "token_type": "bearer"}
+    except ValueError as e:
+        print(f"Google token ValueError: {e}")
+        raise HTTPException(status_code=400, detail=f"Token Error: {str(e)}")
     except Exception as e:
-        print(f"Google login error: {e}")
-        raise HTTPException(status_code=400, detail="Invalid Google credentials")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=f"Login Error: {str(e)}")
 
 
 @app.get("/me")
@@ -280,7 +288,7 @@ async def delete_account(user: User = Depends(get_current_user)):
 # ───────────────────────────────────────────
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 # SESSION MANAGEMENT (NEW)
 # ───────────────────────────────────────────
 @app.post("/start-session")
