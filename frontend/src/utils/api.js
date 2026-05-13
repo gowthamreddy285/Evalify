@@ -7,7 +7,7 @@ export const API = axios.create({
   timeout: 60000,
 });
 
-// Add a request interceptor to attach the JWT token
+// Attach JWT token to every request
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('evalify_token');
   if (token) {
@@ -137,8 +137,16 @@ export async function transcribe(audioBlob) {
   return data;
 }
 
+// ═══════════════════════════════════════════
+// AUTH & PROFILE
+// ═══════════════════════════════════════════
 export async function changePassword({ current_password, new_password }) {
   const { data } = await API.post('/change-password', { current_password, new_password });
+  return data;
+}
+
+export async function googleLogin(token) {
+  const { data } = await API.post('/auth/google', { token });
   return data;
 }
 

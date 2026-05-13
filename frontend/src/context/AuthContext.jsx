@@ -38,7 +38,6 @@ export function AuthProvider({ children }) {
   const login = (newToken) => {
     localStorage.setItem('evalify_token', newToken);
     setToken(newToken);
-    // Trigger a refresh of user data after login
     refreshUser();
   };
 

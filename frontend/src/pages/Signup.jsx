@@ -1,54 +1,38 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import axios from 'axios';
-import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
-import { useInterview } from '../context/InterviewContext';
+import { GoogleLogin } from '@react-oauth/google';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export default function Signup() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const { addToast } = useInterview();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [agree, setAgree] = useState(false);
+  const [confirmPw, setConfirmPw] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
 
-    // 1. Email Validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return addToast('Please enter a valid email address', 'error');
-    }
+    if (name.trim().length < 2) { setError('Name must be at least 2 characters'); return; }
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
+    if (password !== confirmPw) { setError('Passwords do not match'); return; }
 
-    // 2. Password Validation (Min 8 chars)
-    if (password.length < 8) {
-      return addToast('Password must be at least 8 characters long', 'error');
-    }
-
-    if (password !== confirmPassword) {
-      return addToast('Passwords do not match', 'error');
-    }
-    if (!agree) {
-      return addToast('You must agree to the terms', 'error');
-    }
-    
     setLoading(true);
     try {
-      const { data } = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/signup`, { name, email, password });
+      const { data } = await axios.post(`${API_BASE}/signup`, { name: name.trim(), email, password });
       login(data.access_token);
-      addToast('Account created successfully!', 'success');
       navigate('/dashboard');
     } catch (err) {
-      addToast(err.response?.data?.detail || 'Sign up failed', 'error');
+      setError(err.response?.data?.detail || 'Signup failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -56,148 +40,134 @@ export default function Signup() {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const { data } = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/google-login`, {
-        credential: credentialResponse.credential,
-      });
+      setLoading(true);
+      setError('');
+      const { data } = await axios.post(`${API_BASE}/auth/google`, { token: credentialResponse.credential });
       login(data.access_token);
-      addToast('Welcome to Evalify!', 'success');
       navigate('/dashboard');
     } catch (err) {
+ parse-fix
       addToast(err.response?.data?.detail || 'Google login failed', 'error');
+
+      setError(err.response?.data?.detail || 'Google Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+ main
     }
   };
 
+  const pwStrength = password.length === 0 ? 0 : password.length < 8 ? 1 : password.length < 12 ? 2 : 3;
+  const pwColors = ['', '#D4121B', '#E6A817', '#22C55E'];
+  const pwLabels = ['', 'Weak', 'Good', 'Strong'];
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#030303]">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="max-w-md w-full bg-[#0A0A0A] border border-white/5 rounded-[32px] p-10 noise-overlay shadow-2xl relative overflow-hidden"
+    <div className="min-h-screen flex items-center justify-center bg-[#030303] px-6 relative overflow-hidden">
+      <div className="absolute w-[600px] h-[600px] rounded-full bg-[#D4121B] opacity-[0.04] blur-[120px] -top-40 -right-40 pointer-events-none" />
+      <div className="absolute w-[500px] h-[500px] rounded-full bg-[#B4121B] opacity-[0.03] blur-[100px] bottom-0 left-0 pointer-events-none" />
+
+      <motion.div
+        initial={{ opacity: 0, y: 30, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+        className="w-full max-w-md relative"
       >
-        <div className="relative z-10">
-          <div className="text-center mb-10">
-            <h1 className="text-4xl font-black text-[#F5F5F5] uppercase tracking-tighter mb-2">Create Account</h1>
-            <p className="text-[#707070] text-sm font-medium tracking-tight">Start your interview preparation journey</p>
-          </div>
+        <div className="bg-[#0A0A0A] border border-white/[0.06] rounded-[32px] p-10 md:p-12 noise-overlay shadow-[0_24px_80px_rgba(0,0,0,0.5)] relative overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-[2px] bg-gradient-to-r from-transparent via-[#D4121B] to-transparent" />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-[10px] font-black text-[#707070] uppercase tracking-widest mb-2 ml-1">Full Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-[#030303] border border-white/5 rounded-2xl p-4 text-[#F5F5F5] focus:border-[#D4121B]/50 focus:ring-1 focus:ring-[#D4121B]/50 outline-none transition-all"
-                placeholder="e.g. John Doe"
-                required
-              />
+          <div className="relative z-10">
+            <div className="text-center mb-10">
+              <div className="flex items-center justify-center gap-2.5 mb-6">
+                <div className="w-2.5 h-2.5 rounded-full bg-[#D4121B] shadow-[0_0_12px_#D4121B]" />
+                <span className="text-[11px] font-black uppercase tracking-[0.5em] text-[#F5F5F5]">Evalify</span>
+              </div>
+              <h1 className="text-3xl font-black text-[#F5F5F5] uppercase tracking-[-0.03em] mb-2">Create Account</h1>
+              <p className="text-sm text-[#707070] font-medium">Begin your interview mastery journey</p>
             </div>
-            <div>
-              <label className="block text-[10px] font-black text-[#707070] uppercase tracking-widest mb-2 ml-1">Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-[#030303] border border-white/5 rounded-2xl p-4 text-[#F5F5F5] focus:border-[#D4121B]/50 focus:ring-1 focus:ring-[#D4121B]/50 outline-none transition-all"
-                placeholder="name@company.com"
-                required
-              />
-            </div>
-            
-            <div className="space-y-4">
-              <div className="relative">
-                <label className="block text-[10px] font-black text-[#707070] uppercase tracking-widest mb-2 ml-1">Password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-[#030303] border border-white/5 rounded-2xl p-4 pr-12 text-[#F5F5F5] focus:border-[#D4121B]/50 focus:ring-1 focus:ring-[#D4121B]/50 outline-none transition-all"
-                    placeholder="Min. 8 characters"
-                    required
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#707070] hover:text-[#F5F5F5] transition-colors p-1"
-                  >
-                    {showPassword ? (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.076m1.414-1.414A10.05 10.05 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21m-2.101-2.101L3 3" /></svg>
-                    )}
-                  </button>
-                </div>
+
+            {error && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6 p-4 rounded-2xl bg-[#D4121B]/10 border border-[#D4121B]/20">
+                <p className="text-xs text-[#D4121B] font-bold text-center">{error}</p>
+              </motion.div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-[10px] font-black text-[#707070] uppercase tracking-[0.2em] mb-3 ml-1" htmlFor="signup-name">Username</label>
+                <input id="signup-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your display name"
+                  className="w-full bg-[#030303] border border-white/[0.06] rounded-2xl px-5 py-4 text-[#F5F5F5] text-sm font-medium placeholder:text-[#333] focus:border-[#D4121B]/40 focus:ring-1 focus:ring-[#D4121B]/30 outline-none transition-all" required />
               </div>
 
-              <div className="relative">
-                <label className="block text-[10px] font-black text-[#707070] uppercase tracking-widest mb-2 ml-1">Confirm Password</label>
+              <div>
+                <label className="block text-[10px] font-black text-[#707070] uppercase tracking-[0.2em] mb-3 ml-1" htmlFor="signup-email">Email Address</label>
+                <input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com"
+                  className="w-full bg-[#030303] border border-white/[0.06] rounded-2xl px-5 py-4 text-[#F5F5F5] text-sm font-medium placeholder:text-[#333] focus:border-[#D4121B]/40 focus:ring-1 focus:ring-[#D4121B]/30 outline-none transition-all" required autoComplete="email" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-[#707070] uppercase tracking-[0.2em] mb-3 ml-1" htmlFor="signup-password">Password</label>
                 <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full bg-[#030303] border border-white/5 rounded-2xl p-4 pr-12 text-[#F5F5F5] focus:border-[#D4121B]/50 focus:ring-1 focus:ring-[#D4121B]/50 outline-none transition-all"
-                    placeholder="Repeat password"
-                    required
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#707070] hover:text-[#F5F5F5] transition-colors p-1"
-                  >
-                    {showConfirmPassword ? (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.076m1.414-1.414A10.05 10.05 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21m-2.101-2.101L3 3" /></svg>
-                    )}
+                  <input id="signup-password" type={showPw ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 8 characters"
+                    className="w-full bg-[#030303] border border-white/[0.06] rounded-2xl px-5 pr-14 py-4 text-[#F5F5F5] text-sm font-medium placeholder:text-[#333] focus:border-[#D4121B]/40 focus:ring-1 focus:ring-[#D4121B]/30 outline-none transition-all" required autoComplete="new-password" />
+                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-[#707070] hover:text-[#F5F5F5] uppercase tracking-wider transition-colors cursor-pointer" tabIndex={-1}>
+                    {showPw ? 'Hide' : 'Show'}
                   </button>
                 </div>
+                {password.length > 0 && (
+                  <div className="flex items-center gap-3 mt-3 ml-1">
+                    <div className="flex gap-1.5 flex-1">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="flex-1 h-1 rounded-full transition-all duration-300" style={{ backgroundColor: i <= pwStrength ? pwColors[pwStrength] : '#1A1A1A' }} />
+                      ))}
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: pwColors[pwStrength] }}>{pwLabels[pwStrength]}</span>
+                  </div>
+                )}
               </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-[#707070] uppercase tracking-[0.2em] mb-3 ml-1" htmlFor="signup-confirm">Confirm Password</label>
+                <input id="signup-confirm" type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} placeholder="Re-enter password"
+                  className="w-full bg-[#030303] border border-white/[0.06] rounded-2xl px-5 py-4 text-[#F5F5F5] text-sm font-medium placeholder:text-[#333] focus:border-[#D4121B]/40 focus:ring-1 focus:ring-[#D4121B]/30 outline-none transition-all" required autoComplete="new-password" />
+              </div>
+
+              <button type="submit" disabled={loading}
+                className="w-full mt-3 py-4 bg-[#D4121B] hover:bg-[#E61A23] disabled:opacity-50 text-white font-black uppercase tracking-[0.15em] text-[11px] rounded-2xl btn-shine cursor-pointer transition-all shadow-[0_8px_32px_rgba(212,18,27,0.3)] hover:shadow-[0_12px_48px_rgba(212,18,27,0.4)] active:scale-[0.98]">
+                {loading ? (
+                  <span className="flex items-center justify-center gap-3">
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Creating Account...
+                  </span>
+                ) : 'Create Account →'}
+              </button>
+            </form>
+
+            <div className="flex items-center gap-4 my-6">
+              <div className="flex-1 h-[1px] bg-white/[0.04]" />
+              <span className="text-[10px] font-bold text-[#333] uppercase tracking-widest">OR</span>
+              <div className="flex-1 h-[1px] bg-white/[0.04]" />
             </div>
 
-            <div className="flex items-center space-x-3 py-2">
-              <input 
-                type="checkbox" 
-                id="terms"
-                checked={agree}
-                onChange={(e) => setAgree(e.target.checked)}
-                className="w-4 h-4 rounded border-white/5 bg-[#030303] text-[#D4121B] focus:ring-[#D4121B] accent-[#D4121B]"
+            <div className="flex justify-center mb-6">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Google Login Failed')}
+                theme="filled_black"
+                shape="pill"
+                size="large"
+                text="signup_with"
               />
-              <label htmlFor="terms" className="text-[10px] font-bold text-[#707070] uppercase tracking-widest cursor-pointer">
-                I agree to the terms and conditions
-              </label>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full p-4 rounded-2xl bg-[#D4121B] hover:bg-[#FF3B3B] text-white font-black uppercase tracking-widest text-[10px] btn-shine transition-all shadow-xl shadow-[#D4121B]/20"
-            >
-              {loading ? 'Creating Account...' : 'Sign Up'}
-            </button>
-          </form>
+            <div className="flex items-center gap-4 my-6">
+              <div className="flex-1 h-[1px] bg-white/[0.04]" />
+              <span className="text-[10px] font-bold text-[#333] uppercase tracking-widest">Already registered?</span>
+              <div className="flex-1 h-[1px] bg-white/[0.04]" />
+            </div>
 
-          <div className="relative my-10">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
-            <div className="relative flex justify-center text-[10px]"><span className="px-4 bg-[#0A0A0A] text-[#707070] font-black uppercase tracking-widest">Or sign up with</span></div>
+            <Link to="/login" className="block w-full py-4 text-center rounded-2xl border border-white/[0.06] bg-white/[0.02] text-[#707070] hover:text-[#F5F5F5] hover:border-[#D4121B]/30 hover:bg-white/[0.04] font-black uppercase tracking-[0.15em] text-[11px] transition-all">
+              Sign In Instead
+            </Link>
           </div>
-
-          <div className="flex justify-center">
-            <GoogleLogin
-              onSuccess={handleGoogleSuccess}
-              onError={() => addToast('Google login failed', 'error')}
-              theme="dark"
-              shape="pill"
-              text="signup_with"
-              size="large"
-              width="300"
-            />
-          </div>
-
-          <p className="mt-10 text-center text-[10px] font-bold text-[#707070] uppercase tracking-widest">
-            Already have an account? <Link to="/login" className="text-[#D4121B] hover:text-[#FF3B3B] transition-colors ml-1">Login</Link>
-          </p>
         </div>
       </motion.div>
     </div>

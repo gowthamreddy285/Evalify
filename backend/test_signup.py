@@ -2,7 +2,7 @@ import requests
 import json
 
 def test_signup():
-    url = "http://localhost:8001/signup"
+    url = "http://localhost:80010/signup"
     payload = {
         "name": "testuser_unique",
         "email": "test_unique@example.com",
