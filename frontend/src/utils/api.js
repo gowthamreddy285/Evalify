@@ -145,6 +145,11 @@ export async function changePassword({ current_password, new_password }) {
   return data;
 }
 
+export async function googleLogin(token) {
+  const { data } = await API.post('/auth/google', { token });
+  return data;
+}
+
 export async function updateProfile(payload) {
   const { data } = await API.post('/update-profile', payload);
   return data;

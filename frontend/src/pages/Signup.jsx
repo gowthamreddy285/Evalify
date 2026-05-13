@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -32,6 +33,20 @@ export default function Signup() {
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.detail || 'Signup failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    try {
+      setLoading(true);
+      setError('');
+      const { data } = await axios.post(`${API_BASE}/auth/google`, { token: credentialResponse.credential });
+      login(data.access_token);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Google Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -122,7 +137,24 @@ export default function Signup() {
               </button>
             </form>
 
-            <div className="flex items-center gap-4 my-8">
+            <div className="flex items-center gap-4 my-6">
+              <div className="flex-1 h-[1px] bg-white/[0.04]" />
+              <span className="text-[10px] font-bold text-[#333] uppercase tracking-widest">OR</span>
+              <div className="flex-1 h-[1px] bg-white/[0.04]" />
+            </div>
+
+            <div className="flex justify-center mb-6">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Google Login Failed')}
+                theme="filled_black"
+                shape="pill"
+                size="large"
+                text="signup_with"
+              />
+            </div>
+
+            <div className="flex items-center gap-4 my-6">
               <div className="flex-1 h-[1px] bg-white/[0.04]" />
               <span className="text-[10px] font-bold text-[#333] uppercase tracking-widest">Already registered?</span>
               <div className="flex-1 h-[1px] bg-white/[0.04]" />
