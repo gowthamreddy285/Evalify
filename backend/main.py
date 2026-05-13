@@ -12,6 +12,8 @@ import shutil
 import os
 import asyncio
 from dotenv import load_dotenv
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 load_dotenv()
 
@@ -77,6 +79,9 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class GoogleAuthRequest(BaseModel):
+    token: str
 
 
 class Token(BaseModel):
@@ -177,6 +182,52 @@ async def login(user_data: UserLogin):
 
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/google", response_model=Token)
+async def google_auth(req: GoogleAuthRequest):
+    try:
+        # Verify the token
+        idinfo = id_token.verify_oauth2_token(
+            req.token, 
+            google_requests.Request(), 
+            os.getenv("GOOGLE_CLIENT_ID")
+        )
+        email = idinfo.get("email")
+        name = idinfo.get("name")
+        if not email:
+            raise HTTPException(status_code=400, detail="Google token missing email")
+            
+        if not name:
+            name = email.split("@")[0]
+
+        # Check if user exists
+        db_user = await User.find_one(User.email == email)
+        if not db_user:
+            # Check name uniqueness
+            existing_name = await User.find_one(User.name == name)
+            if existing_name:
+                import uuid
+                name = f"{name}_{str(uuid.uuid4())[:6]}"
+
+            # Create user
+            dummy_pwd = get_password_hash("google_auth_placeholder")
+            db_user = User(
+                name=name,
+                email=email,
+                hashed_password=dummy_pwd,
+            )
+            await db_user.insert()
+
+        access_token = create_access_token(data={"sub": db_user.email})
+        return {"access_token": access_token, "token_type": "bearer"}
+
+    except ValueError as e:
+        # Invalid token
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 @app.get("/me")
@@ -616,4 +667,4 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
